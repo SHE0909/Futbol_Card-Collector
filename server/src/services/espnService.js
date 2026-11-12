@@ -489,7 +489,14 @@ async function fetchPerDay(leagueId, from, to) {
 // Si ESPN rechaza los RANGOS (400/403) se deja de intentarlos un rato y se va
 // directo día a día. Un 403 en un rango NO activa el freno global (las tablas y
 // "hoy" pueden seguir funcionando); si el día a día también da 403, ahí sí.
-let rangeBypassUntil = 0;
+// Por liga: que ESPN rechace rangos en una liga (p. ej. esp.1) no debe forzar
+// el modo día-a-día (~75 peticiones) en TODAS las demás.
+const RANGE_BYPASS_MS = 6 * 60 * 60 * 1000;
+const rangeBypass = new Map();
+// Ligas que ya se sabe que ESPN rechaza por rango (400): van día a día desde el
+// primer intento y se reintenta el rango cada 6 h, para no llenar el log de 400.
+const PER_DAY_LEAGUES = (process.env.ESPN_PER_DAY_LEAGUES || "esp.1").split(",").map((x) => x.trim()).filter(Boolean);
+PER_DAY_LEAGUES.forEach((l) => rangeBypass.set(l, Date.now() + RANGE_BYPASS_MS));
 
 /**
  * Una ventana (<= RANGE_CHUNK_DAYS días). Refuerza día a día si:
@@ -501,7 +508,7 @@ async function fetchWindow(leagueId, from, to) {
   const label = `scoreboard ${leagueId} ${dates}`;
   const url = `${BASE_URL}/${leagueId}/scoreboard?dates=${dates}`;
 
-  if (from !== to && Date.now() < rangeBypassUntil) {
+  if (from !== to && Date.now() < (rangeBypass.get(leagueId) || 0)) {
     const r = await fetchPerDay(leagueId, from, to);
     if (r.errors.length > 0 && r.events.length === 0 && r.errors.length === enumerateDates(from, to).length) throw r.errors[0].error;
     return { ...r, fallback: "per-day" };
@@ -513,8 +520,8 @@ async function fetchWindow(leagueId, from, to) {
   } catch (err) {
     const st = err.details?.upstreamStatus;
     if (from !== to && (st === 400 || st === 403)) {
-      rangeBypassUntil = Date.now() + 30 * 60 * 1000;
-      logger.warn("espn", `ESPN rechazó el rango (${st}): se pide día a día durante 30 min`, { league: leagueId, window: dates });
+      rangeBypass.set(leagueId, Date.now() + RANGE_BYPASS_MS);
+      logger.warn("espn", `ESPN rechazó el rango (${st}): se pide día a día durante 6 h`, { league: leagueId, window: dates });
       const r = await fetchPerDay(leagueId, from, to);
       if (r.errors.length === r.requests && r.events.length === 0) throw err; // ni día a día respondió
       return { ...r, requests: r.requests + 1, fallback: "per-day" };
@@ -1084,5 +1091,5 @@ module.exports = {
   getStandings,
   getCompetitions,
   // Exportadas para pruebas
-  _internal: { splitRange, assertRange, parseYmd, parseStandings, resetBreaker: () => { blockedUntil = 0; blockStrikes = 0; rangeBypassUntil = 0; } }
+  _internal: { splitRange, assertRange, parseYmd, parseStandings, resetBreaker: () => { blockedUntil = 0; blockStrikes = 0; rangeBypass.clear(); } }
 };

@@ -5,10 +5,15 @@
 ---
 <section id="tab-dashboard" class="tab-section active">
   <div class="section-header">
-    <h2><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:6px"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Panel Principal</h2>
+    <h2><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:6px"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Resumen</h2>
     <button class="btn btn-sm" id="btn-update-stats"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg> Actualizar</button>
   </div>
   <div id="api-status-bar" class="api-status-bar" style="display:none;"></div>
+  <nav class="comp-strip" aria-label="Competiciones">
+    <button class="comp-chip" data-comp="laliga"    onclick="App.navigateTo('stats').then(()=>document.querySelector('.stab[data-stab=&quot;leagues&quot;]')?.click())"><i style="background:#ff4b3e"></i>LaLiga</button>
+    <button class="comp-chip" data-comp="premier"   onclick="App.navigateTo('stats').then(()=>document.querySelector('.stab[data-stab=&quot;leagues&quot;]')?.click())"><i style="background:#a56bff"></i>Premier League</button>
+    <button class="comp-chip" data-comp="champions" onclick="App.navigateTo('stats').then(()=>document.querySelector('.stab[data-stab=&quot;leagues&quot;]')?.click())"><i style="background:#2f7bff"></i>Champions League</button>
+  </nav>
   <div class="quick-actions">
     <button class="qa-btn" onclick="App.navigateTo('gacha')"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="14" height="18" rx="2"/><path d="M8 21h12a2 2 0 002-2V7a2 2 0 00-2-2h-2"/></svg><span>Tirar</span></button>
     <button class="qa-btn" onclick="App.navigateTo('battle')"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg><span>Minijuegos</span></button>

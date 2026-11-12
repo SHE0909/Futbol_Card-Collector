@@ -1,8 +1,8 @@
 const Dashboard = {
 
   async render() {
-    await this.renderUpcoming();
     await Promise.all([
+      this.renderUpcoming(),
       this.renderLive(),
       this.renderStandings(),
       this.renderFavorites()
@@ -395,7 +395,11 @@ const Dashboard = {
     el.innerHTML = `<div class="favs-grid">${favs.slice(0, 8).map(f => `
       <div class="fav-card" data-id="${f.id}" data-tipo="${f.tipo}" data-name="${f.name}" title="${f.name}">
         <div class="fav-card-photo" id="fav-photo-${f.id}">
-          <span class="fav-card-emoji">${f.tipo==='team'?'🛡️':'👤'}</span>
+          ${f.tipo==='team'
+            ? `<img referrerpolicy="no-referrer" alt="" src="${f.crest || getCrestFallback(f.name)}"
+                 style="width:100%;height:100%;object-fit:contain;padding:6px"
+                 onerror="this.onerror=null;this.src='${getCrestFallback(f.name).replace(/'/g,'')}'">`
+            : `<span class="fav-card-emoji">👤</span>`}
         </div>
         <span class="fav-card-name">${f.name.split(' ')[0]}</span>
         <span class="fav-card-type">${f.tipo==='team'?'Equipo':'Jugador'}</span>

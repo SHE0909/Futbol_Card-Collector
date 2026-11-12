@@ -1,22 +1,23 @@
 :root {
-  --accent:         #00C896;
-  --accent-dark:    #009E78;
-  --accent-glow:    rgba(0, 200, 150, 0.25);
+  --accent:         #19d3ff;
+  --accent-dark:    #0aa7cc;
+  --accent-glow:    rgba(25, 211, 255, 0.25);
 
-  --wc-purple:      #7E3FF2;
-  --wc-pink:        #FF2BB3;
-  --wc-gold:        #FFD700;
-  --wc-green:       #00C896;
+  /* Nombres heredados (--wc-*) con la paleta de clubes: cian, azul Champions, oro */
+  --wc-purple:      #2f7bff;
+  --wc-pink:        #19d3ff;
+  --wc-gold:        #ffc83d;
+  --wc-green:       #19d3ff;
 
-  --gold:           #FFD700;
-  --gold-glow:      rgba(255, 215, 0, 0.35);
+  --gold:           #ffc83d;
+  --gold-glow:      rgba(255, 200, 61, 0.35);
 }
 
 body {
   background:
-    radial-gradient(circle at 15% 20%, rgba(126,63,242,0.18), transparent 40%),
-    radial-gradient(circle at 85% 15%, rgba(255,43,179,0.15), transparent 45%),
-    radial-gradient(circle at 50% 90%, rgba(0,200,150,0.15), transparent 50%),
+    radial-gradient(circle at 15% 20%, rgba(47,123,255,0.16), transparent 40%),
+    radial-gradient(circle at 85% 15%, rgba(255,200,61,0.10), transparent 45%),
+    radial-gradient(circle at 50% 90%, rgba(25,211,255,0.12), transparent 50%),
     var(--bg-base) !important;
   background-attachment: fixed;
 }
@@ -82,6 +83,7 @@ body {
 }
 .auth-grid::before,
 .auth-grid::after {
+  display: none;
   content: '';
   position: absolute;
   top: -10%;

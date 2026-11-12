@@ -1,11 +1,11 @@
 {
   "name": "Club Collector — UES",
-  "short_name": "WCC",
+  "short_name": "Club Collector",
   "description": "Colecciona figuritas de La Liga, Premier League y Champions League — UES",
   "start_url": "/Futbol_Card-Collector/app",
   "scope": "/Futbol_Card-Collector/",
   "display": "standalone",
-  "background_color": "#080c14",
+  "background_color": "#050d0b",
   "theme_color": "#00d4ff",
   "orientation": "any",
   "icons": [

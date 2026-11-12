@@ -6,9 +6,7 @@
 const PUBLIC_API_BASE = import.meta.env.PUBLIC_API_URL || 'https://futbol-card-collector-api.onrender.com';
 ---
 <script is:inline define:vars={{ PUBLIC_API_BASE }}>
-  // Desarrollo (localhost, 127.0.0.1 o IP de red local, p. ej. probando desde
-  // el móvil en http://192.168.x.x:4321) -> backend local en el puerto 3001 del
-  // MISMO host. Cualquier otro host (GitHub Pages, etc.) -> URL inyectada en build.
+ 
   (function () {
     var h = location.hostname;
     var isLocal = h === 'localhost' || h === '127.0.0.1' || h === '[::1]' || /\.local$/.test(h) ||
@@ -19,11 +17,11 @@ const PUBLIC_API_BASE = import.meta.env.PUBLIC_API_URL || 'https://futbol-card-c
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
 <meta name="color-scheme" content="dark"/>
-<meta name="theme-color" content="#080c14"/>
+<meta name="theme-color" content="#050d0b"/>
 <meta name="mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
-<meta name="apple-mobile-web-app-title" content="WCC UES"/>
+<meta name="apple-mobile-web-app-title" content="Club Collector"/>
 <meta name="description" content="Sigue La Liga, Premier League y Champions League: colecciona figuritas, predice partidos y gana recompensas"/>
 <title>Club Collector — UES</title>
 
@@ -32,12 +30,14 @@ const PUBLIC_API_BASE = import.meta.env.PUBLIC_API_URL || 'https://futbol-card-c
 <link rel="apple-touch-icon" href="/Futbol_Card-Collector/icons/icon-192.png"/>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow:wght@300;400;600;700&family=Barlow+Condensed:wght@400;700&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow:wght@300;400;500;600;700&family=Barlow+Condensed:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/Futbol_Card-Collector/css/club-theme.css"/>
 <link rel="stylesheet" href="/Futbol_Card-Collector/css/app.css"/>
 <link rel="stylesheet" href="/Futbol_Card-Collector/css/match-detail.css"/>
 
-<script src="https://cdn.jsdelivr.net/npm/@twemoji/api@latest/dist/twemoji.min.js" crossorigin="anonymous" is:inline></script>
+<script src="https://cdn.jsdelivr.net/npm/@twemoji/api@15.0.3/dist/twemoji.min.js" crossorigin="anonymous" is:inline defer></script>
 
 <style>
   #loading-splash {
@@ -169,3 +169,4 @@ const PUBLIC_API_BASE = import.meta.env.PUBLIC_API_URL || 'https://futbol-card-c
     -webkit-backdrop-filter: blur(10px) !important;
   }
 </style>
+<link rel="stylesheet" href="/Futbol_Card-Collector/css/pitch.css"/>

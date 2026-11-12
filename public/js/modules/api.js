@@ -34,8 +34,8 @@ function getLeagueName(id) { return getLeagueMeta(id)?.name || id || ''; }
 
 // Rango de días hacia atrás/adelante que se consulta a la API para traer
 // histórico (resultados pasados) + próximos partidos en una sola llamada.
-const ESPN_DAYS_BACK = 30;
-const ESPN_DAYS_FORWARD = 45;
+const ESPN_DAYS_BACK = 14;
+const ESPN_DAYS_FORWARD = 28;
 
 function _espnDateRangeYYYYMMDD() {
   const fmt = (d) => `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;

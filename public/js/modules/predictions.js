@@ -422,6 +422,7 @@ const Predictions = {
 
   
   async evaluatePredictions(finishedMatches) {
+    if (typeof Bets !== 'undefined' && Array.isArray(finishedMatches) && finishedMatches.length) Bets.evaluate(finishedMatches);
     const user = await Auth.currentUser();
     if (!user || !Array.isArray(finishedMatches) || !finishedMatches.length) return 0;
 

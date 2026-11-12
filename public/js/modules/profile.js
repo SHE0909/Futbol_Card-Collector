@@ -35,6 +35,9 @@ const Profile = {
     setEl('ps-tiradas',   user.tiradas ?? 0);
     setEl('ps-wins',      user.battleWins || 0);
     setEl('ps-losses',    user.battleLosses || 0);
+    setEl('ps-hc-pts',    user.headPts || 0);
+    setEl('ps-hc-wl',     `${user.headWins || 0}-${user.headLosses || 0}`);
+    setEl('ps-bets',      (user.apuestas || []).filter(b => b.status === 'won').length);
     setEl('ps-aciertos',  user.aciertos ?? 0);
 
     const pityEl = document.getElementById('ps-pity');
@@ -159,7 +162,7 @@ const Profile = {
       favTeams.innerHTML = teams.length
         ? teams.map(f => `
             <span class="fav-tag">
-              ${f.name}
+              <img src="${f.crest || getCrestFallback(f.name)}" alt="" referrerpolicy="no-referrer" style="width:16px;height:16px;object-fit:contain;vertical-align:-3px;margin-right:4px" onerror="this.style.display='none'">${f.name}
               <button data-id="${f.id}" data-tipo="team" title="Eliminar">✕</button>
             </span>`).join('')
         : '<span class="text-muted" style="font-size:0.8rem">Sin equipos favoritos</span>';

@@ -77,16 +77,16 @@ const FIGURITAS_POOL = [
 const TOTAL_FIGURITAS = FIGURITAS_POOL.length;
 
 const RARITY_PROBS = [
-  { rareza:'goat',      min:99.7, max:100   },
-  { rareza:'legendary', min:99,   max:99.69 },
-  { rareza:'epic',      min:90,   max:98.99 },
-  { rareza:'rare',      min:70,   max:89.99 },
+  { rareza:'goat',      min:99.92, max:100   },
+  { rareza:'legendary', min:99.57, max:99.91 },
+  { rareza:'epic',      min:92,   max:99.56 },
+  { rareza:'rare',      min:70,   max:91.99 },
   { rareza:'common',    min:0,    max:69.99 }
 ];
 
 const RARITY_LABELS    = { common:'Común', rare:'Rara', epic:'Épica', legendary:'Legendaria', goat:'🐐 GOAT' };
 const RARITY_COIN_VALUE = { common:1, rare:3, epic:10, legendary:50, goat:200 };
-const PITY_THRESHOLD   = 50;
+const PITY_THRESHOLD   = 80;
 
 const Gacha = {
 
@@ -137,8 +137,13 @@ const Gacha = {
     user.tiradas   -= n;
     user.pityCount  = pityCount;
     await Auth.updateUser(user);
+    // Online: cartas nuevas -> feed de drops + resumen público (en segundo plano)
+    if (typeof Online !== 'undefined') {
+      const nuevas = results.filter(f => !f.isDuplicate).filter((f, i, arr) => arr.findIndex(x => x.id === f.id) === i);
+      if (nuevas.length) Online.publishDrops(user, nuevas); else Online.syncProfile(user);
+    }
     if (typeof DB !== 'undefined' && DB.logActivity)
-      await DB.logActivity(user.email, 'gacha_pull', `x${n}`);
+      DB.logActivity(user.email, 'gacha_pull', `x${n}`);
 
     return { results, user };
   },

@@ -83,15 +83,21 @@
     edgeSwipeStartX = -1;
   }, { passive: true });
 
-  const origNavigateTo = App?.navigateTo?.bind(App);
-  if (origNavigateTo) {
+  // `App` lo define app.js, que se carga con `defer` (después de este script):
+  // por eso el enganche se hace cuando el DOM ya terminó de cargar.
+  function wrapNavigate() {
+    if (typeof App === 'undefined' || App._drawerWrapped) return;
+    const origNavigateTo = App.navigateTo.bind(App);
     App.navigateTo = function(tab) {
       drawer?.querySelectorAll('.drawer-nav-btn').forEach(b => {
         b.classList.toggle('active', b.dataset.tab === tab);
       });
       return origNavigateTo(tab);
     };
+    App._drawerWrapped = true;
   }
+  if (typeof App !== 'undefined') wrapNavigate();
+  else document.addEventListener('DOMContentLoaded', wrapNavigate);
 
   async function fillDrawerUser() {
     try {

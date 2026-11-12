@@ -1,5 +1,5 @@
 ---
-// Página principal de la app — World Cup Collector UES
+// Página principal de la app — Club Collector UES
 //
 // Esta página actúa como "orquestador" de la pantalla principal: define el
 // documento HTML y compone los componentes de src/components/app/*.
@@ -32,16 +32,20 @@ import TabProfile from '../components/app/tabs/TabProfile.astro';
 </head>
 <body>
 
-  <div id="menu-bg-video" aria-hidden="true">
-    <video
-      id="menu-bg-video-el"
-      src="/Futbol_Card-Collector/videos/menu.mp4"
-      autoplay
-      loop
-      muted
-      playsinline
-      preload="auto"
-    ></video>
+  <div id="pitch-bg" aria-hidden="true">
+    <svg viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMid slice">
+      <g fill="none" stroke="currentColor" stroke-width="2.2">
+        <rect x="120" y="70" width="1360" height="860" rx="6"/>
+        <line x1="800" y1="70" x2="800" y2="930"/>
+        <circle cx="800" cy="500" r="120"/>
+        <rect x="120" y="270" width="210" height="460"/>
+        <rect x="120" y="390" width="78" height="220"/>
+        <rect x="1270" y="270" width="210" height="460"/>
+        <rect x="1402" y="390" width="78" height="220"/>
+        <path d="M330 420a120 120 0 010 160M1270 420a120 120 0 000 160"/>
+      </g>
+      <circle cx="800" cy="500" r="5" fill="currentColor"/>
+    </svg>
   </div>
 
   <LoadingSplash />

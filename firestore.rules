@@ -11,7 +11,14 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read, create, delete: if request.auth != null && request.auth.uid == userId;
+      // Endurecimiento básico anti-trampa: no se permite saldo negativo ni subir
+      // las monedas o los puntos de Head Cards de golpe desde la consola del navegador.
+      // (Una protección real y completa requiere mover estas reglas de juego al servidor.)
+      allow update: if request.auth != null && request.auth.uid == userId
+        && request.resource.data.get('monedas', 0) >= 0
+        && request.resource.data.get('monedas', 0) - resource.data.get('monedas', 0) <= 20000
+        && request.resource.data.get('headPts', 0) - resource.data.get('headPts', 0) <= 60;
     }
 
     // Config de la app editable solo por la cuenta admin (UID fijo, ver
@@ -23,6 +30,32 @@ service cloud.firestore {
     match /config/{docId} {
       allow read: if request.auth != null;
       allow write: if request.auth != null && request.auth.uid == 'EDh7heVm8xd1wUWuIXjwnH6yKe43';
+    }
+
+    // ---- ONLINE (rankings, drops, Head Cards) ----
+    // Resumen público de cada jugador: todos pueden leer, solo el dueño escribe.
+    match /leaderboard/{uid} {
+      allow read: if request.auth != null;
+      allow create, update: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.uid == uid
+        && request.resource.data.name is string && request.resource.data.name.size() < 40
+        // El ranking no puede mostrar más que lo que el propio usuario tiene en su documento.
+        && request.resource.data.headPts <= get(/databases/$(database)/documents/users/$(uid)).data.get('headPts', 0)
+        && request.resource.data.monedas <= get(/databases/$(database)/documents/users/$(uid)).data.get('monedas', 0);
+      allow delete: if false;
+    }
+    // Feed de drops: 1 doc por (carta, usuario); no se puede editar ni borrar.
+    match /drops/{dropId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+        && request.resource.data.uid == request.auth.uid
+        && dropId == request.resource.data.cardId + '_' + request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    // Salas P2P (solo intercambio de oferta/respuesta WebRTC).
+    match /rooms/{code} {
+      allow read, create, update, delete: if request.auth != null;
     }
 
     // Bloquea todo lo demás por defecto.

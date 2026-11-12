@@ -1,25 +1,65 @@
 ---
-
-// Responsabilidad: pestaña "Sobres" (gacha) — animación del sobre,
-
+// Responsabilidad: pestaña "Sobres" (gacha). La carta del sobre es una isla
+// reutilizable: tiene dos caras (.pack-front / .pack-back) y da la vuelta
+// cuando app.js agrega la clase .sobre-opening (ver pitch.css).
+// IDs y clases que usa la lógica (app.js) se mantienen sin cambios.
 ---
 <section id="tab-gacha" class="tab-section">
-  <div class="section-header"><h2><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-4px;margin-right:6px"><rect x="2" y="4" width="14" height="18" rx="2"/><path d="M8 22h12a2 2 0 002-2V8a2 2 0 00-2-2h-2"/></svg>Sobres</h2></div>
+  <div class="section-header">
+    <h2>Sobres</h2>
+    <span class="section-sub">Reclama tu figurita y completa el álbum de la temporada</span>
+  </div>
+
   <div class="gacha-center">
     <div class="sobre-stage">
+
       <div class="sobre-wrapper" id="sobre-wrapper">
-        <div class="sobre sobre-closed" id="sobre-closed">
-          <div class="sobre-top-flap"></div>
-          <div class="sobre-body">
-            <div class="sobre-logo">
-              <div class="sobre-trophy">🏆</div>
-              <div class="sobre-wc-text">CLUB</div>
-              <div class="sobre-wc-year">COLLECTOR 26/27</div>
-              <div class="sobre-panini">COLECCIÓN DE FIGURITAS</div>
-              <div class="sobre-stars">★ ★ ★ ★ ★</div>
-              <div class="sobre-countries">🇪🇸 🏴󠁧󠁢󠁥󠁮󠁧󠁿 🇪🇺</div>
+        <div class="sobre sobre-closed" id="sobre-closed" role="img" aria-label="Sobre de figuritas Club Collector 26/27">
+          <div class="pack-flip">
+
+            <div class="pack-face pack-front">
+              <div class="pack-band"><span>Club Collector</span><b>26/27</b></div>
+              <div class="pack-art">
+                <svg class="pack-trophy" viewBox="0 0 64 64" width="64" height="64" aria-hidden="true">
+                  <defs>
+                    <linearGradient id="gold-foil" x1="0" y1="0" x2="1" y2="1">
+                      <stop offset="0" stop-color="#fff2b0"/><stop offset=".45" stop-color="#ffc83d"/><stop offset="1" stop-color="#c98a0a"/>
+                    </linearGradient>
+                  </defs>
+                  <path d="M18 8h28v14a14 14 0 01-28 0V8z" fill="url(#gold-foil)"/>
+                  <path d="M18 12H9v5a9 9 0 009 9M46 12h9v5a9 9 0 01-9 9" fill="none" stroke="url(#gold-foil)" stroke-width="3" stroke-linecap="round"/>
+                  <rect x="29" y="34" width="6" height="10" fill="url(#gold-foil)"/>
+                  <path d="M20 54h24l-3-10H23l-3 10z" fill="url(#gold-foil)"/>
+                  <rect x="17" y="54" width="30" height="4" rx="1.5" fill="#a56f08"/>
+                </svg>
+                <div class="pack-title">Figuritas</div>
+                <div class="pack-sub">Temporada 26/27</div>
+              </div>
+              <ul class="pack-comps" aria-label="Competiciones">
+                <li><i style="background:#ff4b3e"></i>LaLiga</li>
+                <li><i style="background:#a56bff"></i>Premier</li>
+                <li><i style="background:#2f7bff"></i>Champions</li>
+              </ul>
+              <div class="pack-foil"></div>
             </div>
-            <div class="sobre-bottom-strip"></div>
+
+            <div class="pack-face pack-back" aria-hidden="true">
+              <svg viewBox="0 0 220 320" preserveAspectRatio="xMidYMid slice" class="pack-back-art">
+                <rect width="220" height="320" fill="none"/>
+                <g fill="none" stroke="currentColor" stroke-width="1.6">
+                  <rect x="14" y="14" width="192" height="292" rx="10"/>
+                  <line x1="14" y1="160" x2="206" y2="160"/>
+                  <circle cx="110" cy="160" r="38"/>
+                  <rect x="60" y="14" width="100" height="44"/>
+                  <rect x="86" y="14" width="48" height="18"/>
+                  <rect x="60" y="262" width="100" height="44"/>
+                  <rect x="86" y="288" width="48" height="18"/>
+                </g>
+                <circle cx="110" cy="160" r="8" fill="currentColor"/>
+              </svg>
+              <div class="pack-back-mark">CC</div>
+            </div>
+
           </div>
           <div class="sobre-shine"></div>
         </div>
@@ -32,33 +72,59 @@
           <span class="sobre-tiradas-lbl">sobres disponibles</span>
         </div>
         <div class="pity-section">
-          <div class="pity-label">Garantía legendaria <span id="pity-display">0/50</span></div>
+          <div class="pity-label">Garantía legendaria <span id="pity-display">0/80</span></div>
           <div class="pity-bar-track"><div class="pity-bar-fill" id="pity-bar" style="width:0%"></div></div>
         </div>
       </div>
 
       <div class="gacha-btns">
         <button class="btn btn-sobre-1" id="btn-gacha-1">
-          <span class="sobre-btn-icon">📦</span>
+          <svg class="sobre-btn-icon" viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2.5"/><path d="M9 8h6M9 12h6"/></svg>
           <span class="sobre-btn-text">Abrir 1 sobre</span>
           <span class="sobre-btn-sub">1 figurita</span>
         </button>
         <button class="btn btn-sobre-10" id="btn-gacha-10">
-          <span class="sobre-btn-icon">🗃️</span>
+          <svg class="sobre-btn-icon" viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="2.5" width="12" height="15" rx="2"/><path d="M5 6v13a2 2 0 002 2h10"/></svg>
           <span class="sobre-btn-text">Abrir 10 sobres</span>
-          <span class="sobre-btn-sub">10 figuritas · más probabilidad ★</span>
+          <span class="sobre-btn-sub">10 figuritas, más chances de legendaria</span>
         </button>
       </div>
     </div>
 
     <div class="gacha-result" id="gacha-result" style="display:none;"></div>
 
-    <div class="rarity-legend">
+    <div class="rarity-legend" aria-label="Probabilidades por rareza">
       <span class="rarity common">Común 70%</span>
-      <span class="rarity rare">Rara 20%</span>
-      <span class="rarity epic">Épica 9%</span>
-      <span class="rarity legendary">Legendaria 0.7%</span>
-      <span class="rarity legendary" style="background:linear-gradient(135deg,#ff2244,#ff6622);color:white">🐐 GOAT 0.3%</span>
+      <span class="rarity rare">Rara 22%</span>
+      <span class="rarity epic">Épica 7.5%</span>
+      <span class="rarity legendary">Legendaria 0.35%</span>
+      <span class="rarity goat">GOAT 0.08%</span>
     </div>
   </div>
 </section>
+
+<script is:inline>
+  // Inclinación 3D + brillo holográfico que sigue al puntero (solo decorativo).
+  (function () {
+    var pack = document.getElementById('sobre-closed');
+    if (!pack || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    var wrap = document.getElementById('sobre-wrapper');
+    wrap.addEventListener('pointermove', function (e) {
+      var r = pack.getBoundingClientRect();
+      var x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height;
+      pack.style.setProperty('--rx', ((0.5 - y) * 14).toFixed(2) + 'deg');
+      pack.style.setProperty('--ry', ((x - 0.5) * 18).toFixed(2) + 'deg');
+      pack.style.setProperty('--mx', (x * 100).toFixed(1) + '%');
+      pack.style.setProperty('--my', (y * 100).toFixed(1) + '%');
+    });
+    wrap.addEventListener('pointerleave', function () {
+      pack.style.setProperty('--rx', '0deg');
+      pack.style.setProperty('--ry', '0deg');
+    });
+    // Tocar la carta equivale a "Abrir 1 sobre" (usa el mismo botón y la misma lógica).
+    wrap.addEventListener('click', function () {
+      var b = document.getElementById('btn-gacha-1');
+      if (b && !b.disabled) b.click();
+    });
+  })();
+</script>

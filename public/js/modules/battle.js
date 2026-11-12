@@ -184,6 +184,13 @@ const Battle = {
       </div>
 
       <div class="battle-modes">
+        <div class="battle-mode-card bmode-online" id="bmode-online">
+          <div class="bmode-icon">🌐</div>
+          <div class="bmode-title">Online</div>
+          <div class="bmode-desc">Rankings, drops de otros jugadores y Head Cards: duelos con las stats de tus cartas.</div>
+          <div class="bmode-reward">Rankings + PvP + monedas</div>
+          <div class="bmode-attempts">¡Nuevo!</div>
+        </div>
         <div class="battle-mode-card ${BattleAttempts.remaining('classic') === 0 ? 'bmode-exhausted' : ''}" id="bmode-classic">
           <div class="bmode-icon">⚔</div>
           <div class="bmode-title">Batalla Clásica</div>
@@ -256,6 +263,7 @@ const Battle = {
     this._renderTeamPanels();
 
     
+    document.getElementById('bmode-online').addEventListener('click', () => Online.open());
     document.getElementById('bmode-classic').addEventListener('click', () => {
       if (!BattleAttempts.consume('classic')) {
         Toast.warn('Ya usaste los 2 intentos de Batalla Clásica hoy. Vuelve mañana.');
@@ -411,6 +419,7 @@ const Battle = {
     if (won) reward = 1;
     else if (drawn) reward = 0;
 
+    if (typeof Arcade !== 'undefined') await Arcade.classic(rounds, userTeam.name, cpuTeam.name);
     await this._applyBattleResult(won, drawn, reward);
 
     Modal.open(`
@@ -444,6 +453,7 @@ const Battle = {
 
   
   async startPenaltyBattle() {
+    if (typeof PenaltyGame !== 'undefined') return PenaltyGame.start();
     let userGoals = 0, cpuGoals = 0;
     let round = 0;
     const totalRounds = 3; 
@@ -638,6 +648,10 @@ const Battle = {
   ],
 
   async startQuizBattle() {
+    if (typeof Arcade !== 'undefined') {
+      const qs = [...this._quizQuestions].sort(() => Math.random() - 0.5).slice(0, 5).map(q => ({ prompt: q.q, opts: q.opts, ans: q.ans }));
+      return Arcade.ask(qs, { title: 'Quiz', icon: '🧠', time: 12, onEnd: (s, t) => this._endQuizBattle(s, t) });
+    }
     const questions = [...this._quizQuestions].sort(() => Math.random() - 0.5).slice(0, 5);
     let score = 0;
     let qi = 0;
@@ -749,6 +763,13 @@ const Battle = {
   async startGuessPlayer() {
     const allFigs = Gacha.getPool();
     if (!allFigs.length) { Toast.error('No hay jugadores disponibles'); return; }
+    if (typeof Arcade !== 'undefined') {
+      const items = [...allFigs].sort(() => Math.random() - 0.5).slice(0, 5).map(c => {
+        const opts = [...allFigs.filter(f => f.id !== c.id).sort(() => Math.random() - 0.5).slice(0, 3), c].sort(() => Math.random() - 0.5);
+        return { prompt: '¿Quién es este jugador?', emoji: Array.isArray(c.emoji) ? c.emoji.join(' ') : (c.emoji || '❓'), photoId: c.id, opts: opts.map(o => o.name), ans: opts.findIndex(o => o.id === c.id) };
+      });
+      return Arcade.ask(items, { title: 'Adivina', icon: '👤', time: 15, onEnd: (s, t) => this._endGuessPlayer(s, t) });
+    }
 
     const toGuess = [...allFigs].sort(() => Math.random() - 0.5).slice(0, 5);
     let score = 0;
@@ -839,6 +860,7 @@ const Battle = {
     const shuffledPlayers = [...players].sort(() => Math.random() - 0.5).map(p => Object.assign({}, p));
     const shuffledTeams   = [...players].sort(() => Math.random() - 0.5).map(p => ({ name: p.team }));
 
+    if (typeof Arcade !== 'undefined') return Arcade.connect(players, { time: 45, onEnd: (won, m) => this._endConnectPlayer(won, m) });
     let selectedPlayer = null;
     let matched = 0;
     const self = this;
@@ -956,6 +978,7 @@ const Battle = {
     if (monedas > 0) user.monedas = (user.monedas || 0) + monedas;
 
     await Auth.updateUser(user);
+    if (typeof Online !== 'undefined') Online.syncProfile(user);
     await DB.logActivity(user.email, 'battle', `${won?'victoria':'derrota'} +${tiradas}🎴 +${monedas}💰`);
     if (typeof App !== 'undefined') await App.refreshHeader();
     if (tiradas > 0) Toast.success(`⚔️ Batalla terminada! +${tiradas} tirada${tiradas>1?'s':''}${monedas>0?` +${monedas}💰`:''}`);

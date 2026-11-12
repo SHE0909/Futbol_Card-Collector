@@ -7,7 +7,21 @@ if (typeof window !== 'undefined') {
   window.parseEmojis = parseEmojis;
   document.addEventListener('DOMContentLoaded', () => {
     parseEmojis(document.body);
-    const observer = new MutationObserver(() => parseEmojis(document.body));
+    // Rendimiento: antes se re-parseaba TODO el body en cada mutación del DOM.
+    // Ahora solo se procesan los nodos nuevos, agrupados en un frame.
+    let queue = new Set(), scheduled = false;
+    const flush = () => {
+      scheduled = false;
+      const nodes = Array.from(queue); queue = new Set();
+      nodes.forEach(n => { if (n.isConnected) parseEmojis(n); });
+    };
+    const observer = new MutationObserver(muts => {
+      for (const m of muts) m.addedNodes.forEach(n => {
+        if (n.nodeType === 1 && n.tagName !== 'IMG') queue.add(n);
+        else if (n.nodeType === 3 && n.parentElement) queue.add(n.parentElement);
+      });
+      if (!scheduled && queue.size) { scheduled = true; requestAnimationFrame(flush); }
+    });
     observer.observe(document.body, { childList: true, subtree: true });
   });
 }
@@ -100,22 +114,23 @@ const App = {
     }
 
     await this.loadUserData(user);
-    this.navigateTo('dashboard');
-
-    try {
-      const finished = await API.getFinishedMatches();
-      if (finished && finished.length) {
-        await Predictions.evaluatePredictions(finished);
-      }
-    } catch(e) { console.error('Eval predicciones al iniciar falló:', e); }
-
-    const daily = await Gacha.claimDaily();
-    if (daily.ok) Toast.success('🎁 ¡Tirada diaria reclamada! +1 tirada');
-
+    // Rendimiento: la UI queda interactiva primero; lo pesado corre en segundo plano.
     this._bindNavEvents();
     this._bindGlobalEvents();
     this._bindDataSyncEvents();
-    this._showInitialApiKeyInfo();
+    this.navigateTo('dashboard');
+
+    Gacha.claimDaily().then(daily => {
+      if (daily.ok) Toast.success('🎁 ¡Tirada diaria reclamada! +1 tirada');
+    }).catch(() => {});
+
+    const idle = window.requestIdleCallback || (fn => setTimeout(fn, 1200));
+    idle(async () => {
+      try {
+        const finished = await API.getFinishedMatches();
+        if (finished && finished.length) await Predictions.evaluatePredictions(finished);
+      } catch(e) { console.error('Eval predicciones al iniciar falló:', e); }
+    });
   },
 
   // Escucha las actualizaciones que llegan en background por el sistema
@@ -132,6 +147,7 @@ const App = {
       if (!key) return;
 
       try {
+        if (key === 'live' && typeof Bets !== 'undefined') Bets.evaluate(null);
         if (['live', 'upcoming', 'standings'].includes(key) && this._currentTab === 'dashboard') {
           // Dashboard.render() vuelve a leer de API.getXxx(), que ahora
           // sirve el dato recién cacheado sin ir a red de nuevo.
@@ -157,20 +173,6 @@ const App = {
     });
   },
 
-  _showInitialApiKeyInfo() {
-    const hasCustomKey = !!localStorage.getItem('wcc_af_api_key');
-    if (!hasCustomKey) {
-      const maxPerHour = typeof _AF_DEFAULT_MAX_PER_HOUR !== 'undefined' ? _AF_DEFAULT_MAX_PER_HOUR : 10;
-      const bar = document.getElementById('api-status-bar');
-      if (bar) {
-        bar.style.display = 'flex';
-        bar.className = 'api-status-bar api-status-mock';
-        bar.innerHTML = `<span> Usando key compartida · Límite: ${maxPerHour} consultas/hora · <strong style="cursor:pointer;text-decoration:underline" onclick="App.navigateTo('profile')">Añade tu key gratis</strong> para actualizaciones ilimitadas</span>`;
-        setTimeout(() => { bar.style.display = 'none'; }, 8000);
-      }
-    }
-  },
-
   async loadUserData(user = null) {
     const u = user || await Auth.currentUser();
     if (!u) return;
@@ -181,11 +183,11 @@ const App = {
     const user = u || await Auth.currentUser();
     if (!user) return;
     document.getElementById('header-greeting').textContent = `Hola, ${user.name.split(' ')[0]}`;
-    document.getElementById('hdr-tiradas').innerHTML = `🎴 <strong>${user.tiradas ?? 0}</strong>`;
+    document.getElementById('hdr-tiradas').innerHTML = `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2.5"/><path d="M9 8h6M9 12h6"/></svg> <strong>${user.tiradas ?? 0}</strong>`;
     const gc = document.getElementById('gacha-count');
     if (gc) gc.textContent = user.tiradas ?? 0;
     const hdrMonedas = document.getElementById('hdr-monedas');
-    if (hdrMonedas) hdrMonedas.innerHTML = `🪙 <strong>${user.monedas ?? 0}</strong>`;
+    if (hdrMonedas) hdrMonedas.innerHTML = `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M9.5 9.5h4a1.8 1.8 0 010 3.6h-3a1.8 1.8 0 000 3.6h4"/></svg> <strong>${user.monedas ?? 0}</strong>`;
   },
 
   navigateTo(tab) {
@@ -220,6 +222,10 @@ const App = {
         
         const prevResult = document.getElementById('gacha-result');
         if (prevResult) { prevResult.innerHTML = ''; prevResult.style.display = 'none'; }
+        const prevSlot = document.getElementById('sobre-open');
+        if (prevSlot) { prevSlot.innerHTML = ''; prevSlot.style.display = 'none'; }
+        const prevPack = document.getElementById('sobre-closed');
+        if (prevPack) prevPack.style.visibility = 'visible';
         const u = await Auth.currentUser();
         if (u) {
           const gc = document.getElementById('gacha-count');
@@ -227,8 +233,8 @@ const App = {
           const pc = u.pityCount || 0;
           const pd = document.getElementById('pity-display');
           const pb = document.getElementById('pity-bar');
-          if (pd) pd.textContent = `${pc}/50`;
-          if (pb) pb.style.width = `${Math.min(100, (pc/50)*100)}%`;
+          if (pd) pd.textContent = `${pc}/80`;
+          if (pb) pb.style.width = `${Math.min(100, (pc/80)*100)}%`;
           if (u.tiradas > 0) document.getElementById('gacha-sphere')?.classList.add('has-tiradas');
         }
         break;
@@ -237,7 +243,7 @@ const App = {
         await Album.render();
         await Album.renderIdealTeam();
         break;
-      case 'predictions': await Predictions.render(); break;
+      case 'predictions': await Predictions.render(); if (typeof Bets !== 'undefined') Bets.mount(); break;
       case 'battle':      await Battle.render(); break;
       case 'exchange':    await Exchange.render(); break;
       case 'profile':     await Profile.render(); break;
@@ -549,9 +555,7 @@ const App = {
       bar.className = 'api-status-bar api-status-mock';
       bar.innerHTML = `<span>⚠️ Sin datos disponibles en este momento. Intenta actualizar en unos minutos.</span>`;
     } else if (source === 'hourly_limit') {
-      bar.className = 'api-status-bar api-status-mock';
-      const maxPerHour = typeof _AF_DEFAULT_MAX_PER_HOUR !== 'undefined' ? _AF_DEFAULT_MAX_PER_HOUR : 10;
-      bar.innerHTML = `<span>🕐 Límite horario (${maxPerHour} req/hora con key por defecto). Añade tu propia key en <strong>Perfil → API Key</strong> para sin límite.</span>`;
+      bar.style.display = 'none';
     } else if (source === 'rate_limit') {
       bar.className = 'api-status-bar api-status-mock';
       bar.innerHTML = `<span>⚠️ Límite diario de la API alcanzado. Se resetea a medianoche. Añade tu propia key en <strong>Perfil → API Key</strong>.</span>`;
@@ -581,14 +585,18 @@ const App = {
     if (btnX1)  btnX1.disabled  = true;
     if (btnX10) btnX10.disabled = true;
 
+    const inPlace = (n === 1);
+    const slot    = document.getElementById('sobre-open');
+    if (slot) { slot.style.display = 'none'; slot.innerHTML = ''; }
+    if (sobreClosed) sobreClosed.style.visibility = 'visible';
     result.style.display = 'none';
     if (sobreClosed) {
       sobreClosed.classList.add('sobre-opening');
       await new Promise(r => setTimeout(r, 900));
     }
 
-    result.style.display = 'block';
-    result.innerHTML = `
+    if (!inPlace) result.style.display = 'block';
+    if (!inPlace) result.innerHTML = `
       <div class="sobre-loading">
         <div class="sobre-loading-cards">
           ${Array(n > 3 ? 5 : n).fill(0).map((_, i) => `
@@ -616,10 +624,26 @@ const App = {
 
     await Promise.all(pull.results.map(f => Gacha.getPlayerPhoto(f)));
 
-    result.innerHTML = `
+    const topR = pull.results.some(f => f.rareza === 'goat') ? 'goat' : pull.results.some(f => f.rareza === 'legendary') ? 'legendary' : null;
+    if (topR) {
+      const fl = document.createElement('div'); fl.className = 'rarity-flash ' + topR; document.body.appendChild(fl);
+      setTimeout(() => fl.remove(), 1800);
+      if (navigator.vibrate) navigator.vibrate(topR === 'goat' ? [80, 40, 160] : [60]);
+    }
+    const gridHtml = `
       <div class="gacha-cards-grid ${pull.results.length === 1 ? 'single-card' : ''}" id="gacha-grid">
         ${pull.results.map((f, idx) => this._renderFiguritaCard(f, null, idx)).join('')}
       </div>`;
+    if (inPlace && slot) {
+      // 1 sobre: la carta aparece justo donde estaba el sobre (sin sección debajo)
+      slot.innerHTML = gridHtml;
+      slot.style.display = 'flex';
+      if (sobreClosed) sobreClosed.style.visibility = 'hidden';
+      result.innerHTML = ''; result.style.display = 'none';
+    } else {
+      result.innerHTML = gridHtml;
+      result.style.display = 'block';
+    }
 
     document.querySelectorAll('#gacha-grid .figurita-card').forEach((card, i) => {
       setTimeout(() => card.classList.add('card-flip-in'), i * 100);
@@ -666,8 +690,8 @@ const App = {
     const pc = pull.user.pityCount || 0;
     const pd = document.getElementById('pity-display');
     const pb = document.getElementById('pity-bar');
-    if (pd) pd.textContent = `${pc}/50`;
-    if (pb) pb.style.width = `${Math.min(100, (pc / 50) * 100)}%`;
+    if (pd) pd.textContent = `${pc}/80`;
+    if (pb) pb.style.width = `${Math.min(100, (pc / 80) * 100)}%`;
 
     const goat = pull.results.find(f => f.rareza === 'goat');
     const leg  = pull.results.find(f => f.rareza === 'legendary');
@@ -759,6 +783,7 @@ const App = {
     return `
       <div class="figurita-card ${f.rareza}" style="animation-delay:${delay}s">
         <div class="fig-rarity-glow"></div>
+        ${(f.rareza === 'goat' || f.rareza === 'legendary') ? '<i class="fx-aura"></i><i class="fx-shine"></i><i class="fx-sparks"></i>' : ''}
         <span class="rarity-badge badge-${f.rareza}">${Gacha.getRarityLabel(f.rareza)}</span>
         ${photoSection}
         <div class="fig-info">
