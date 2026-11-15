@@ -9,7 +9,8 @@
 const PenaltyGame = {
   W: 800, H: 450, G: { x: 150, y: 80, w: 500, h: 170 }, SPOT: { x: 400, y: 395 },
 
-  start() {
+  start(opts = {}) {
+    this.p2p = !!opts.p2p; this._box = {}; this._wait2 = {};
     this.u = 0; this.c = 0; this.log = []; this.round = 0; this.alive = true;
     this.ov = document.createElement('div'); this.ov.className = 'hc-overlay';
     this.ov.innerHTML = `<div class="hc-stage"><button class="hc-x" id="pg-x">✕</button>
@@ -24,15 +25,27 @@ const PenaltyGame = {
     this._dn = e => { this._ptr(e); const f = this.click; this.click = null; f && f(); };
     this.cv.addEventListener('pointermove', this._ptr); this.cv.addEventListener('pointerdown', this._dn);
     this.ov.querySelector('#pg-x').onclick = () => this.close(false);
+    if (this.p2p) this.ov.querySelector('#pg-x').title = 'Salir (cuenta como derrota)';
     this._loop = () => { if (!this.alive) return; this._draw(); this._raf = requestAnimationFrame(this._loop); }; this._loop();
     this._play();
   },
   close(finished) {
+    if (this.p2p) { this.p2p = false; P2P.close(); }
     this.alive = false; cancelAnimationFrame(this._raf); removeEventListener('resize', this._rs);
     this.ov?.remove(); document.body.style.overflow = '';
-    if (!finished) Battle.render();
+    if (!finished) { if (typeof Online !== 'undefined' && document.getElementById('tab-battle')) Online.open(); else Battle.render(); }
   },
   _fit() { const f = Arcade.fitStage(this.ov.querySelector('.hc-stage'), this.cv, this.W, this.H, 56); this.sc = f.sc; this.rot = f.rot; },
+  // --- P2P: buzón de mensajes (dive / shot) por número de tiro ---
+  _recv(type) {
+    const key = type + this.log.length;
+    return new Promise(res => { if (this._box[key]) return res(this._box[key]); this._wait2[key] = res; });
+  },
+  _onMsg(m) {
+    if (m.t !== 'dive' && m.t !== 'shot') return;
+    const key = m.t + m.i; this._box[key] = m; if (this._wait2[key]) { this._wait2[key](m); delete this._wait2[key]; }
+  },
+  _p2pClosed() { if (this.alive && this.p2p) { Toast.warn('El rival se desconectó'); this.close(false); } },
   _wait(ms) { return new Promise(r => setTimeout(r, ms)); },
   _tween(ms, fn) { return new Promise(res => { const t0 = performance.now(); const f = now => { if (!this.alive) return res(); const k = Math.min(1, (now - t0) / ms); fn(k); k < 1 ? requestAnimationFrame(f) : res(); }; requestAnimationFrame(f); }); },
   _tap(msg) { this.help.textContent = msg; return new Promise(r => { this.click = r; }); },
@@ -43,7 +56,7 @@ const PenaltyGame = {
   async _play() {
     for (let r = 0; this.alive; r++) {
       this.round = r;
-      for (const who of ['u', 'c']) {
+      for (const who of (this.p2p && P2P.role === 'guest' ? ['c', 'u'] : ['u', 'c'])) {
         if (!this.alive) return;
         const res = who === 'u' ? await this._shoot() : await this._defend();
         this.log.push({ who, goal: res }); if (res) who === 'u' ? this.u++ : this.c++;
@@ -60,8 +73,11 @@ const PenaltyGame = {
   _finish() {
     this.alive = false; cancelAnimationFrame(this._raf);
     const w = this.u > this.c, d = this.u === this.c;
-    this.ov.querySelector('.hc-stage').insertAdjacentHTML('beforeend', `<div class="hc-result" style="--c:${w ? '#3ddc84' : '#ff4d6d'}"><h2>${w ? '¡GANASTE LA TANDA!' : 'LA PERDISTE'}</h2><div class="hc-final">${this.u} - ${this.c}</div><button class="btn btn-primary" id="pg-ok">Continuar</button></div>`);
-    this.ov.querySelector('#pg-ok').onclick = () => { this.close(true); Battle._endPenaltyBattle(this.u, this.c); };
+    this.ov.querySelector('.hc-stage').insertAdjacentHTML('beforeend', `<div class="hc-result" style="--c:${w ? '#3ddc84' : '#ff4d6d'}"><h2>${w ? '¡GANASTE LA TANDA!' : 'LA PERDISTE'}</h2>${this.p2p ? '<small>Duelo P2P · sin recompensas</small>' : ''}<div class="hc-final">${this.u} - ${this.c}</div><button class="btn btn-primary" id="pg-ok">Continuar</button></div>`);
+    this.ov.querySelector('#pg-ok').onclick = () => {
+      if (this.p2p) { this.close(true); if (typeof Online !== 'undefined') Online.open(); return; }
+      this.close(true); Battle._endPenaltyBattle(this.u, this.c);
+    };
   },
   _reset() { Object.assign(this.ball, { x: this.SPOT.x, y: this.SPOT.y, s: 1 }); Object.assign(this.keeper, { x: 400, y: 215, rot: 0 }); this.cross = null; this.power = null; this.hit = null; },
 
@@ -78,41 +94,56 @@ const PenaltyGame = {
     const T = { x: this.cross.x + Math.cos(a) * rr, y: this.cross.y + Math.sin(a) * rr * .8 - (p > .93 ? 30 : 0) };
     const G = this.G, out = T.x < G.x + 2 || T.x > G.x + G.w - 2 || T.y < G.y + 2 || T.y > G.y + G.h;
     const post = !out && (T.x < G.x + 12 || T.x > G.x + G.w - 12 || T.y < G.y + 12) && Math.random() < .5;
-    const z = this._zone(T.x, T.y), kz = { c: [0, 1, 2][Math.floor(Math.random() * 3)], r: Math.random() < .55 ? 1 : 0 }; kz.id = kz.r * 3 + kz.c;
-    const dist = Math.abs(kz.c - z.c) + Math.abs(kz.r - z.r);
+    const z = this._zone(T.x, T.y); let kz;
+    if (this.p2p) { this.help.textContent = 'Esperando al portero rival…'; const d = await this._recv('dive'); kz = d.z ? { ...d.z } : null; }
+    else { kz = { c: [0, 1, 2][Math.floor(Math.random() * 3)], r: Math.random() < .55 ? 1 : 0 }; kz.id = kz.r * 3 + kz.c; }
+    const dist = kz ? Math.abs(kz.c - z.c) + Math.abs(kz.r - z.r) : 9;
     const save = !out && !post && (dist === 0 ? Math.random() < .9 - .6 * p : dist === 1 ? Math.random() < .22 * (1 - p) : false);
-    const kc = this._zc(kz); const k0 = { ...this.keeper };
+    const kind = save ? 'save' : out ? 'miss' : post ? 'post' : 'goal';
+    if (this.p2p) P2P.send({ t: 'shot', i: this.log.length, T, p, kind }, true);
+    this.help.textContent = '';
+    const kc = kz ? this._zc(kz) : { x: 400, y: 215 }; const k0 = { ...this.keeper };
     const dur = 620 - p * 200; this._beep(200, .08);
     await Promise.all([
       this._tween(dur, k => { const e = 1 - Math.pow(1 - k, 2); this.ball.x = this.SPOT.x + (T.x - this.SPOT.x) * e; this.ball.y = this.SPOT.y + (T.y - this.SPOT.y) * e - Math.sin(k * Math.PI) * 38; this.ball.s = 1 - .6 * e; }),
       this._tween(dur * .85, k => { const e = Math.min(1, k * 1.15); this.keeper.x = k0.x + (kc.x - k0.x) * e; this.keeper.y = k0.y + (kc.y - k0.y) * e; this.keeper.rot = (kc.x - k0.x) / 160 * e; })
     ]);
-    return this._outcome(save ? 'save' : out ? 'miss' : post ? 'post' : 'goal', T, true);
+    return this._outcome(kind, T, true);
   },
 
   // ---- tú atajas
   async _defend() {
     this._reset(); this.banner = { txt: 'ATAJAS · ELIGE UN LADO', t: 1 }; await this._wait(700); this.banner = null;
-    const w = [.28, .12, .28, .15, .05, .12]; const sx = Math.random() * w.reduce((a, b) => a + b); let acc = 0, id = 0; for (let i = 0; i < 6; i++) { acc += w[i]; if (sx <= acc) { id = i; break; } }
-    const sz = { c: id % 3, r: id > 2 ? 1 : 0, id }; const T = this._zc(sz); T.x += (Math.random() - .5) * 40;
+    let sz = null, T = null;
+    if (!this.p2p) {
+      const w = [.28, .12, .28, .15, .05, .12]; const sx = Math.random() * w.reduce((a, b) => a + b); let acc = 0, id = 0; for (let i = 0; i < 6; i++) { acc += w[i]; if (sx <= acc) { id = i; break; } }
+      sz = { c: id % 3, r: id > 2 ? 1 : 0, id }; T = this._zc(sz); T.x += (Math.random() - .5) * 40;
+    }
     this.pick = null; this.zonesOn = true; this.click = null;
     let chosen = null;
     this._dn2 = () => { const z = this._zone(this.mouse.x, this.mouse.y); if (this.mouse.y > this.G.y - 20 && this.mouse.y < this.G.y + this.G.h + 20) chosen = z; };
     const handler = e => { this._ptr(e); this._dn2(); }; this.cv.addEventListener('pointerdown', handler);
     this.help.textContent = '¡Toca la zona del arco donde crees que va el balón!';
     const t0 = performance.now(); let fired = false, dive = false; const k0 = { ...this.keeper };
-    const wait = 1500; // tiempo de decisión
+    const wait = this.p2p ? 12000 : 1500; // tiempo de decisión
     await new Promise(res => { const f = () => { if (!this.alive) return res(); this.timer = 1 - (performance.now() - t0) / wait; if (chosen || performance.now() - t0 > wait) return res(); requestAnimationFrame(f); }; f(); });
     this.timer = null; this.zonesOn = false; this.cv.removeEventListener('pointerdown', handler); this.help.textContent = '';
     const kc = chosen ? this._zc(chosen) : { x: 400, y: 215 }; this._beep(200, .08);
-    const dist = chosen ? Math.abs(chosen.c - sz.c) + Math.abs(chosen.r - sz.r) : 9;
-    const save = dist === 0 ? true : dist === 1 ? Math.random() < .3 : false;
+    let kind;
+    if (this.p2p) {
+      P2P.send({ t: 'dive', i: this.log.length, z: chosen ? { c: chosen.c, r: chosen.r, id: chosen.id } : null }, true);
+      this.help.textContent = 'El rival está pateando…'; const sh = await this._recv('shot'); this.help.textContent = '';
+      T = sh.T; kind = sh.kind;
+    } else {
+      const dist = chosen ? Math.abs(chosen.c - sz.c) + Math.abs(chosen.r - sz.r) : 9;
+      kind = (dist === 0 ? true : dist === 1 ? Math.random() < .3 : false) ? 'save' : 'goal';
+    }
     const dur = 560;
     await Promise.all([
       this._tween(dur, k => { const e = 1 - Math.pow(1 - k, 2); this.ball.x = this.SPOT.x + (T.x - this.SPOT.x) * e; this.ball.y = this.SPOT.y + (T.y - this.SPOT.y) * e - Math.sin(k * Math.PI) * 38; this.ball.s = 1 - .6 * e; }),
       this._tween(dur * .9, k => { const e = Math.min(1, k * 1.1); this.keeper.x = k0.x + (kc.x - k0.x) * e; this.keeper.y = k0.y + (kc.y - k0.y) * e; this.keeper.rot = (kc.x - k0.x) / 160 * e; })
     ]);
-    const r = await this._outcome(save ? 'save' : 'goal', T, false); return r;
+    const r = await this._outcome(kind, T, false); return r;
   },
 
   async _outcome(kind, T, mine) {
@@ -158,7 +189,7 @@ const PenaltyGame = {
   },
   _reticle(x, px, py, c) { x.strokeStyle = c; x.lineWidth = 3; x.beginPath(); x.arc(px, py, 16, 0, 7); x.moveTo(px - 24, py); x.lineTo(px - 8, py); x.moveTo(px + 8, py); x.lineTo(px + 24, py); x.moveTo(px, py - 24); x.lineTo(px, py - 8); x.moveTo(px, py + 8); x.lineTo(px, py + 24); x.stroke(); },
   _hud(x) {
-    x.fillStyle = 'rgba(5,10,28,.8)'; x.beginPath(); x.roundRect(250, 6, 300, 54, 12); x.fill(); x.textAlign = 'center'; x.fillStyle = '#fff'; x.font = '700 28px Bebas Neue, sans-serif'; x.fillText(`TÚ ${this.u}  -  ${this.c} CPU`, 400, 36);
+    x.fillStyle = 'rgba(5,10,28,.8)'; x.beginPath(); x.roundRect(250, 6, 300, 54, 12); x.fill(); x.textAlign = 'center'; x.fillStyle = '#fff'; x.font = '700 28px Bebas Neue, sans-serif'; x.fillText(`TÚ ${this.u}  -  ${this.c} ${this.p2p ? 'RIVAL' : 'CPU'}`, 400, 36);
     [['u', 270], ['c', 530]].forEach(([w, bx]) => { const l = this.log.filter(q => q.who === w); for (let i = 0; i < Math.max(5, l.length); i++) { x.fillStyle = l[i] ? (l[i].goal ? '#3ddc84' : '#ff4d6d') : 'rgba(255,255,255,.25)'; x.beginPath(); x.arc(bx - 40 + i * 20 - (w === 'c' ? 0 : 0), 50, 5, 0, 7); x.fill(); } });
     if (this.banner) { this.banner.t = Math.max(0, this.banner.t - .006); x.save(); x.translate(400, 170); const s = 1 + (1 - this.banner.t) * .1; x.scale(s, s); x.font = '700 64px Bebas Neue, sans-serif'; x.lineWidth = 6; x.strokeStyle = '#000'; x.fillStyle = this.banner.good === false ? '#ff4d6d' : '#ffd24d'; x.strokeText(this.banner.txt, 0, 0); x.fillText(this.banner.txt, 0, 0); x.restore(); }
   }

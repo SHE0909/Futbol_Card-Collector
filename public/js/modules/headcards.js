@@ -87,11 +87,11 @@ const HeadCards = {
   // ------------------------------------------------ P2P (sala con código)
   _brief(c) { return { id: c.id, name: c.name, rareza: c.rareza, rating: c.rating, pos: c.pos, emoji: c.emoji }; },
   _p2pReady() {
-    this._myReady = true; P2P.send({ t: 'card', card: this._brief(this._sel) });
+    this._myReady = true; P2P.send({ t: 'card', card: this._brief(this._sel) }, true);
     this._ov.querySelector('#hc-go').textContent = 'Esperando al rival…'; this._ov.querySelector('#hc-go').disabled = true;
     this._tryGo();
   },
-  _tryGo() { if (this._myReady && this._remoteCard && P2P.role === 'host' && !this._started) { this._started = true; P2P.send({ t: 'go' }); this._start(); } },
+  _tryGo() { if (this._myReady && this._remoteCard && P2P.role === 'host' && !this._started) { this._started = true; P2P.send({ t: 'go' }, true); this._start(); } },
   _snap() {
     const f = p => ({ x: p.x, y: p.y, vx: p.vx, vy: p.vy, dir: p.dir, kick: p.kick, meter: p.meter, run: p.run, score: p.score, squash: p.squash }), b = this.ball;
     return { a: f(this.p1), c: f(this.p2), b: { x: b.x, y: b.y, rot: b.rot, fire: b.fire }, time: this.time, st: this.state, stT: this.stT, ex: this.extra, bn: this.banner, sh: this.shake };
@@ -111,7 +111,7 @@ const HeadCards = {
   // ------------------------------------------------ juego
   _mk(card, side, human) {
     const st = this.statsOf(card);
-    return { card, st, side, human, x: side < 0 ? 170 : this.W - 170, y: this.GROUND - st.r - 24, vx: 0, vy: 0, r: st.r,
+    return { card, st, side, human, x: side < 0 ? 170 : this.W - 170, y: this.GROUND - st.r - 20, vx: 0, vy: 0, r: st.r,
       dir: -side, ground: true, kick: 0, cd: 0, meter: 0, run: 0, score: 0, ai: { tx: 0, t: 0 }, squash: 0 };
   },
   _rivalCard() {
@@ -198,7 +198,7 @@ const HeadCards = {
     const ballOnMySide = b.x > W * (0.42 - 0.1 * L);
     const target = ballOnMySide ? a.tx + 26 : home;
     const dx = target - px, near = Math.hypot(b.x - px, b.y - p.y);
-    const foot = Math.hypot(b.x - (px - 44), b.y - (this.GROUND - 20));
+    const foot = Math.hypot(b.x - (px - (p.r * 0.5 + 24)), b.y - (p.y + p.r + 2));
     const l = dx < -8, r = dx > 8;
     const j = ballOnMySide && Math.abs(b.x - px) < 80 && b.y < p.y + 10 && b.vy > -2 && Math.random() < 0.05 + 0.1 * L;
     const k = b.x < px + 8 && (foot < 52 || near < p.r + 50) && Math.random() < 0.25 + 0.5 * L;
@@ -227,7 +227,7 @@ const HeadCards = {
     if (mv) { p.dir = mv; p.run += 0.35 * ts * Math.abs(mv); } else p.run *= 0.9;
     if (inp.j && p.ground) { p.vy = -st.jump; p.ground = false; this._dust(p.x, this.GROUND, 6); p.squash = -1; }
     p.vy += g; p.x += p.vx * ts; p.y += p.vy * ts;
-    const floor = this.GROUND - p.r - 24;
+    const floor = this.GROUND - p.r - 20;
     if (p.y >= floor) { if (!p.ground && p.vy > 4) { this._dust(p.x, this.GROUND, 8); p.squash = 1; } p.y = floor; p.vy = 0; p.ground = true; }
     p.x = Math.max(p.r, Math.min(this.W - p.r, p.x));
     p.cd -= 1 / 60; if (p.kick > 0) p.kick -= 1 / 60 * ts;
@@ -242,18 +242,32 @@ const HeadCards = {
       b.vx += p.vx * 0.5 + nx * st.power * 0.18; b.vy += p.vy * 0.4 + ny * st.power * 0.12 - 1.2;
       p.meter = Math.min(100, p.meter + 14); this._spark(b.x, b.y, 6, '#fff'); this._beep(300, .04); this.shake = Math.max(this.shake, 2.5);
     }
-    // patada (pie)
+    // botín: pegado a la cabeza (sube y baja con ella) y solo golpea hacia donde mira
+    const bt = this._boot(p);
     if (p.kick > 0) {
-      const sw = 1 - p.kick / 0.22, fx = p.x + p.dir * (p.r + 8 + 14 * Math.sin(sw * Math.PI)), fy = this.GROUND - 26 - 18 * Math.sin(sw * Math.PI);
-      const fd = Math.hypot(b.x - fx, b.y - fy);
-      if (fd < 17 + b.r + 6 && !p.hit) {
+      const fd = Math.hypot(b.x - bt.x, b.y - bt.y);
+      if (fd < 16 + b.r + 4 && !p.hit) {
         p.hit = true;
-        const sup = p.superKick; const pw = st.power * (sup ? 1.7 : 1);
-        b.vx = p.dir * pw * 1.12; b.vy = -pw * (0.5 + Math.random() * 0.1);
+        const sup = p.superKick, pw = st.power * (sup ? 1.7 : 1) * 1.1;
+        // dirección: mezcla "adelante y un poco arriba" con la normal del contacto -> rebote predecible
+        let nx = b.x - bt.x, ny = b.y - bt.y; const nl = Math.hypot(nx, ny) || 1; nx /= nl; ny /= nl;
+        let dx = 0.7 * p.dir + 0.3 * nx, dy = -0.38 + 0.3 * ny; const dl = Math.hypot(dx, dy) || 1;
+        if (dx * p.dir < 0.25) dx = 0.25 * p.dir;                      // nunca hacia atrás
+        b.vx = dx / dl * pw + p.vx * 0.3; b.vy = dy / dl * pw + Math.min(0, p.vy) * 0.2;
         if (sup) { b.fire = 1.6; p.meter = 0; this.shake = 9; this.banner = { t: 0.9, txt: '¡SÚPER TIRO!' }; this._spark(b.x, b.y, 24, '#ff8a1f'); this._beep(120, .25); }
         else { p.meter = Math.min(100, p.meter + 22); this._spark(b.x, b.y, 10, '#ffd24d'); this.shake = 4; }
       }
-    } else p.hit = false;
+    } else {
+      p.hit = false;
+      // el botín en reposo también es sólido (rebote suave)
+      const dx = b.x - bt.x, dy = b.y - bt.y, d = Math.hypot(dx, dy), min = 11 + b.r;
+      if (d < min && d > 0.001) { const nx = dx / d, ny = dy / d; b.x = bt.x + nx * min; b.y = bt.y + ny * min; const rv = (b.vx - p.vx) * nx + (b.vy - p.vy) * ny; if (rv < 0) { b.vx -= 1.4 * rv * nx; b.vy -= 1.4 * rv * ny; } }
+    }
+  },
+  // posición del botín respecto a la cabeza (nunca depende del suelo)
+  _boot(p) {
+    const sw = p.kick > 0 ? 1 - p.kick / 0.22 : 0, a = Math.sin(sw * Math.PI);
+    return { x: p.x + p.dir * (p.r * 0.5 + 9 + 24 * a), y: p.y + p.r + 8 - 11 * a, a, sw };
   },
   _ballStep(ts, still) {
     const b = this.ball, W = this.W, G = this.GROUND, GW = this.GW, BAR = this.BAR;
@@ -283,7 +297,7 @@ const HeadCards = {
   _reset() {
     if (this.state === 'end') return;
     const a = this.p1, c = this.p2;
-    [a, c].forEach(p => { p.x = p.side < 0 ? 170 : this.W - 170; p.y = this.GROUND - p.r - 24; p.vx = p.vy = 0; p.meter *= 0.5; });
+    [a, c].forEach(p => { p.x = p.side < 0 ? 170 : this.W - 170; p.y = this.GROUND - p.r - 20; p.vx = p.vy = 0; p.meter *= 0.5; });
     Object.assign(this.ball, { x: this.W / 2, y: 140, vx: 0, vy: 0, fire: 0, trail: [] });
     this.state = 'play'; this.slow = 1;
   },
@@ -308,7 +322,7 @@ const HeadCards = {
   async _finish() {
     if (this.state === 'end') return; this.state = 'end';
     const g = this._guest, a = g ? this.p2.score : this.p1.score, b = g ? this.p1.score : this.p2.score, won = a > b, draw = a === b, m = this._mode;
-    if (m.type === 'p2p' && !g) P2P.send({ t: 'end', a: this.p1.score, b: this.p2.score });
+    if (m.type === 'p2p' && !g) P2P.send({ t: 'end', a: this.p1.score, b: this.p2.score }, true);
     const u = await Auth.currentUser();
     let coins = 0, pts = 0, note = '';
     if (m.type !== 'local') {
@@ -352,28 +366,27 @@ const HeadCards = {
     x.strokeStyle = '#fff'; x.lineWidth = 5; x.beginPath(); x.moveTo(0, BAR); x.lineTo(GW, BAR); x.lineTo(GW, G); x.stroke(); x.restore();
   },
   _drawPlayer(x, p) {
-    const col = this.COLORS[p.card.rareza], im = this._photos[p.card.id], r = p.r, G = this.GROUND;
-    x.save(); x.translate(p.x, 0);
-    x.fillStyle = 'rgba(0,0,0,.3)'; x.beginPath(); x.ellipse(0, G + 2, r * (0.9 - Math.max(0, (G - p.y - r) / 600)), 6, 0, 0, 7); x.fill();
+    const col = this.COLORS[p.card.rareza], im = this._photos[p.card.id], r = p.r, G = this.GROUND, bt = this._boot(p);
+    x.save();
+    // sombra
+    const hh = Math.max(0, Math.min(1, (G - (p.y + r + 18)) / 220));
+    x.fillStyle = 'rgba(0,0,0,.32)'; x.beginPath(); x.ellipse(p.x, G + 2, r * (0.95 - hh * 0.45), 6 - hh * 2, 0, 0, 7); x.fill();
+    // botín (se pivota sobre el tobillo y gira hacia adelante al patear)
+    x.save(); x.translate(bt.x, bt.y); x.scale(p.dir * 1.3, 1.3); x.rotate(-0.1 + bt.a * 0.7);
+    x.fillStyle = '#10131c'; x.beginPath(); x.moveTo(-13, -6); x.quadraticCurveTo(-13, 7, -8, 8); x.lineTo(12, 8); x.quadraticCurveTo(19, 7, 17, 0); x.quadraticCurveTo(10, -4, 4, -6); x.closePath(); x.fill();
+    x.fillStyle = col; x.beginPath(); x.moveTo(5, -5); x.quadraticCurveTo(14, -2, 17, 1); x.quadraticCurveTo(18, 7, 12, 8); x.lineTo(4, 8); x.closePath(); x.fill();
+    x.fillStyle = '#f5f7ff'; x.fillRect(-11, 8, 24, 2.4); x.fillStyle = 'rgba(255,255,255,.85)'; x.fillRect(-5, -3, 2.2, 7); x.fillRect(-1, -3, 2.2, 7);
+    x.restore();
+    // cabeza con foto (gira hacia donde mira)
     const sq = 1 + p.squash * 0.08;
-    // piernas
-    const sw = Math.sin(p.run) * 9;
-    x.strokeStyle = '#f1f3f9'; x.lineWidth = 7; x.lineCap = 'round';
-    x.beginPath(); x.moveTo(-6, p.y + r + 14); x.lineTo(-8 + sw, G - 5); x.stroke(); x.beginPath(); x.moveTo(6, p.y + r + 14); x.lineTo(8 - sw, G - 5); x.stroke();
-    x.fillStyle = '#111'; x.beginPath(); x.ellipse(-8 + sw + p.dir * 4, G - 3, 9, 4.5, 0, 0, 7); x.fill();
-    // pie de patada
-    if (p.kick > 0) { const t = 1 - p.kick / 0.22, a = Math.sin(t * Math.PI); x.strokeStyle = '#f1f3f9'; x.beginPath(); x.moveTo(p.dir * 6, p.y + r + 14); x.lineTo(p.dir * (r + 8 + 14 * a), G - 26 - 18 * a); x.stroke(); x.fillStyle = '#111'; x.beginPath(); x.arc(p.dir * (r + 12 + 14 * a), G - 26 - 18 * a, 8, 0, 7); x.fill(); }
-    // cuerpo (camiseta del color de rareza)
-    x.fillStyle = col; x.beginPath(); x.roundRect(-r * .62, p.y + r - 6, r * 1.24, 30, 9); x.fill();
-    x.fillStyle = 'rgba(255,255,255,.85)'; x.font = '700 12px Barlow Condensed, sans-serif'; x.textAlign = 'center'; x.fillText(p.card.rating || '', 0, p.y + r + 14);
-    // cabeza con foto
-    x.save(); x.translate(0, p.y); x.scale(1 / sq, sq);
+    x.save(); x.translate(p.x, p.y); x.scale(1 / sq, sq);
     if (p.card.rareza === 'legendary' || p.card.rareza === 'goat') { x.shadowColor = col; x.shadowBlur = 18; }
     x.beginPath(); x.arc(0, 0, r, 0, 7); x.fillStyle = '#0d1430'; x.fill(); x.shadowBlur = 0;
     x.save(); x.beginPath(); x.arc(0, 0, r - 2, 0, 7); x.clip();
     if (im) { const s = (r * 2.3) / Math.min(im.width, im.height); x.save(); if (p.dir < 0) x.scale(-1, 1); x.drawImage(im, -im.width * s / 2, -r * 0.95, im.width * s, im.height * s); x.restore(); }
-    else { x.fillStyle = col; x.globalAlpha = .35; x.fillRect(-r, -r, 2 * r, 2 * r); x.globalAlpha = 1; x.fillStyle = '#fff'; x.font = `${r}px sans-serif`; x.fillText(p.card.emoji?.[0] || '⚽', 0, r * .35); }
-    x.restore(); x.lineWidth = 4; x.strokeStyle = col; x.beginPath(); x.arc(0, 0, r - 1, 0, 7); x.stroke(); x.restore();
+    else { x.fillStyle = col; x.globalAlpha = .35; x.fillRect(-r, -r, 2 * r, 2 * r); x.globalAlpha = 1; x.fillStyle = '#fff'; x.font = '700 ' + Math.round(r * 0.9) + 'px Bebas Neue, sans-serif'; x.textAlign = 'center'; x.fillText(String(p.card.rating || ''), 0, r * .3); }
+    x.restore(); x.lineWidth = 4; x.strokeStyle = col; x.beginPath(); x.arc(0, 0, r - 1, 0, 7); x.stroke();
+    x.restore();
     x.restore();
   },
   _draw() {

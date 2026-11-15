@@ -197,20 +197,53 @@ const Bets = {
       <div class="bets-grid">${shown.length ? shown.map(m => this._card(m)).join('') : '<p class="empty-state">No hay partidos disponibles para apostar ahora.</p>'}</div>
       <div id="bets-slip" class="bets-slip"></div>`;
     root.querySelectorAll('.chip').forEach(c => c.onclick = () => { this._filter = c.dataset.f; this._render(); });
-    root.querySelectorAll('.bet-mtab').forEach(b => b.onclick = () => { this._mk[b.dataset.m_] = b.dataset.t; this._render(); });
+    root.querySelectorAll('[data-open]').forEach(b => b.onclick = e => { if (e.target.closest('.odd')) return; this._openMatch(b.dataset.open); });
     root.querySelectorAll('.odd').forEach(b => b.onclick = () => this._toggle(b.dataset.m, b.dataset.mk, b.dataset.k));
     this._drawSlip();
   },
+  _crest(u) { return `<img src="${u || ''}" referrerpolicy="no-referrer" loading="lazy" onerror="this.style.display='none'">`; },
   _card(m) {
-    const mks = this._markets(m, m._s), cur = this._mk[m.id] && mks.find(x => x.id === this._mk[m.id]) || mks[0];
+    const mks = this._markets(m, m._s), cur = mks[0], crest = u => this._crest(u);
     const sel = k => this.slip.some(s => s.key === `${m.id}|${cur.id}|${k}`);
-    const crest = u => `<img src="${u || ''}" referrerpolicy="no-referrer" loading="lazy" onerror="this.style.display='none'">`;
-    return `<article class="bet-card ${m._s === 'live' ? 'is-live' : ''}">
+    const inSlip = this.slip.some(s => String(s.matchId) === String(m.id));
+    return `<article class="bet-card ${m._s === 'live' ? 'is-live' : ''}" data-open="${m.id}">
       <header><span class="bet-comp">${m.competition || ''}</span>${m._s === 'live' ? `<b class="bet-live">● EN VIVO ${m.minute || ''}</b>` : `<span class="bet-time">${API.getTimeUntilMatch(m) || (m.time || '')}</span>`}</header>
       <div class="bet-teams"><span>${crest(m.homeCrest)}${m.home}</span><b>${m._s === 'live' ? `${m.scoreHome ?? 0} - ${m.scoreAway ?? 0}` : 'vs'}</b><span>${m.away}${crest(m.awayCrest)}</span></div>
-      <div class="bet-mtabs">${mks.map(x => `<button class="bet-mtab ${x.id === cur.id ? 'active' : ''}" data-m_="${m.id}" data-t="${x.id}">${x.label}</button>`).join('')}</div>
       <div class="bet-odds n${Math.min(cur.picks.length, 3)}">${cur.picks.map(p => `<button class="odd ${sel(p.k) ? 'on' : ''}" data-m="${m.id}" data-mk="${cur.id}" data-k="${p.k}"><span>${p.l}</span><b>${p.o.toFixed(2)}</b></button>`).join('')}</div>
+      <button class="bet-more" data-open="${m.id}">${inSlip ? '✓ En tu boleto · ' : ''}Ver todos los mercados (${mks.length}) ›</button>
     </article>`;
+  },
+  // ---------- ventana emergente con todos los mercados del partido ----------
+  _openMatch(id) {
+    this._modalId = String(id); this._modalMk = this._modalMk || {};
+    let ov = document.getElementById('bet-modal');
+    if (!ov) { ov = document.createElement('div'); ov.id = 'bet-modal'; ov.className = 'bet-modal'; document.body.appendChild(ov); }
+    ov.onclick = e => { if (e.target === ov) this._closeMatch(); };
+    document.body.classList.add('bet-modal-open');
+    this._drawModal();
+  },
+  _closeMatch() {
+    const ov = document.getElementById('bet-modal'); if (ov) ov.remove();
+    document.body.classList.remove('bet-modal-open'); this._modalId = null;
+    this._render();
+  },
+  _drawModal() {
+    const ov = document.getElementById('bet-modal'); if (!ov) return;
+    const m = this._matches.find(x => String(x.id) === this._modalId); if (!m) return this._closeMatch();
+    const mks = this._markets(m, m._s), body = ov.querySelector('.bm-body'), top = body ? body.scrollTop : 0;
+    const n = this.slip.length, odds = this.slip.reduce((p, s) => p * s.odds, 1);
+    ov.innerHTML = `<div class="bm-box" role="dialog" aria-modal="true">
+      <div class="bm-head"><div><small>${m.competition || ''} · ${m._s === 'live' ? `<b class="bet-live">● EN VIVO ${m.minute || ''}</b>` : (API.getTimeUntilMatch(m) || m.time || '')}</small>
+        <div class="bm-teams"><span>${this._crest(m.homeCrest)}${m.home}</span><b>${m._s === 'live' ? `${m.scoreHome ?? 0} - ${m.scoreAway ?? 0}` : 'vs'}</b><span>${this._crest(m.awayCrest)}${m.away}</span></div></div>
+        <button class="bm-x" id="bm-close" aria-label="Cerrar">✕</button></div>
+      <div class="bm-body">${mks.map(mk => `<section class="bm-mk"><h4>${mk.label}</h4>
+        <div class="bm-odds">${mk.picks.map(p => `<button class="odd ${this.slip.some(s => s.key === `${m.id}|${mk.id}|${p.k}`) ? 'on' : ''}" data-mk="${mk.id}" data-k="${p.k}"><span>${p.l}</span><b>${p.o.toFixed(2)}</b></button>`).join('')}</div></section>`).join('')}</div>
+      <div class="bm-foot"><span>${n ? `Boleto: <b>${n}</b> selección${n > 1 ? 'es' : ''} · cuota <b>${odds.toFixed(2)}</b>` : 'Elige una cuota para armar tu boleto'}</span>
+        <button class="btn btn-primary" id="bm-done">${n ? 'Ver boleto y apostar' : 'Cerrar'}</button></div></div>`;
+    ov.querySelector('#bm-close').onclick = () => this._closeMatch();
+    ov.querySelector('#bm-done').onclick = () => this._closeMatch();
+    ov.querySelectorAll('.odd').forEach(b => b.onclick = () => this._toggle(m.id, b.dataset.mk, b.dataset.k));
+    ov.querySelector('.bm-body').scrollTop = top;
   },
   _toggle(matchId, mkId, k) {
     const m = this._matches.find(x => String(x.id) === String(matchId)); if (!m) return;
@@ -223,12 +256,13 @@ const Bets = {
       this.slip = this.slip.filter(s => String(s.matchId) !== String(matchId)); // 1 selección por partido
       this.slip.push({ key, matchId, matchLabel: `${m.home} vs ${m.away}`, market: mkId.startsWith('tot') || mkId === 'ltot' ? 'tot' : /^t[ha]\d/.test(mkId) ? 'tt' : mkId, team: mk.team, mlabel: mk.label, line: mk.line, list: mk.list, pick: k, plabel: p.l, odds: p.o, base: mk.base, state: 'pending' });
     }
-    this._render();
+    if (this._modalId) { this._drawSlip(); this._drawModal(); } else this._render();
   },
   _drawSlip() {
     const el = document.getElementById('bets-slip'); if (!el) return;
     if (!this.slip.length) { el.style.display = 'none'; return; }
     const odds = this.slip.reduce((p, s) => p * s.odds, 1), st = this._stake || 20;
+    if (!this._stake) this._stake = st;
     el.style.display = '';
     el.innerHTML = `<div class="slip-head"><b>${this.slip.length > 1 ? `Combinada (${this.slip.length})` : 'Boleto'}</b><button id="slip-clear">Vaciar</button></div>
       ${this.slip.map(s => `<div class="slip-leg"><div><small>${s.matchLabel} · ${s.mlabel}</small><span>${s.plabel}</span></div><b>${s.odds.toFixed(2)}</b></div>`).join('')}
@@ -238,12 +272,26 @@ const Bets = {
       <button class="btn btn-primary" id="slip-go">Apostar</button>`;
     const inp = el.querySelector('#slip-stake'), upd = () => { this._stake = Math.floor(+inp.value || 0); el.querySelector('#slip-win').textContent = Math.round(this._stake * odds); };
     inp.oninput = upd;
-    el.querySelectorAll('.slip-quick button').forEach(b => b.onclick = () => { inp.value = b.dataset.v === 'max' ? Math.min(this.MAX, this._user.monedas || 0) : b.dataset.v; upd(); });
+    el.querySelectorAll('.slip-quick button').forEach(b => b.onclick = () => { inp.value = b.dataset.v === 'max' ? Math.min(this.MAX, (this._user && this._user.monedas) || this.MAX) : b.dataset.v; upd(); });
     el.querySelector('#slip-clear').onclick = () => { this.slip = []; this._render(); };
     el.querySelector('#slip-go').onclick = () => this._place();
   },
   async _place() {
+    if (this._placing) return;
+    const inpEl = document.getElementById('slip-stake');
+    if (inpEl) this._stake = Math.floor(+inpEl.value || 0);
+    this._placing = true;
+    const btn = document.getElementById('slip-go'); if (btn) { btn.disabled = true; btn.textContent = 'Apostando…'; }
+    try { await this._doPlace(); }
+    catch (e) {
+      console.error('[Bets] no se pudo apostar', e);
+      Toast.error('No se pudo guardar la apuesta: ' + (e && e.code === 'permission-denied' ? 'permiso denegado (publica las firestore.rules)' : (e && e.message) || 'error de red') , 6000);
+      this._drawSlip();
+    } finally { this._placing = false; }
+  },
+  async _doPlace() {
     const stake = Math.floor(this._stake || 0), user = await Auth.currentUser();
+    if (!user) return Toast.warn('Inicia sesión para apostar');
     if (stake < this.MIN || stake > this.MAX) return Toast.warn(`La apuesta debe estar entre ${this.MIN} y ${this.MAX} 🪙`);
     if ((user.monedas || 0) < stake) return Toast.warn('No tienes suficientes monedas');
     const ap = user.apuestas || [];
@@ -254,7 +302,7 @@ const Bets = {
       if (s.market !== 'next' && (st === 'live' || st === 'finished')) return Toast.warn(`${s.matchLabel} ya comenzó`);
     }
     const odds = this.slip.reduce((p, s) => p * s.odds, 1);
-    ap.push({ id: 'b' + Date.now().toString(36), legs: this.slip.map(({ key, ...l }) => l), stake, odds: Math.round(odds * 100) / 100, status: 'pending', payout: 0, at: Date.now() });
+    ap.push({ id: 'b' + Date.now().toString(36), legs: JSON.parse(JSON.stringify(this.slip.map(({ key, ...l }) => l))), stake, odds: Math.round(odds * 100) / 100, status: 'pending', payout: 0, at: Date.now() });
     user.apuestas = ap; user.monedas -= stake;
     await Auth.updateUser(user); App.refreshHeader?.(user);
     Toast.success(`🧾 Apuesta realizada: ${stake} 🪙 a cuota ${odds.toFixed(2)}`);

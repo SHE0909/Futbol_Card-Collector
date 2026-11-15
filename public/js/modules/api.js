@@ -532,6 +532,15 @@ const API = {
     }));
   },
 
+  // Top goleadores de una liga (caché 6 h; el backend consulta ESPN y cachea igual)
+  async getScorers(leagueId = DEFAULT_LEAGUE) {
+    const r = await Cache.swr(`scorers_${leagueId}`, async () => {
+      const d = await this._fetch(`${WCC_BASE}/scorers?league=${leagueId}`);
+      return (d && d.success && Array.isArray(d.data) && d.data.length) ? d.data : null;
+    }, { ttl: 6 * 60 * 60 * 1000 });
+    return r || [];
+  },
+
   async getStandings(leagueId = DEFAULT_LEAGUE) {
     const cacheKey = `standings_${leagueId}`;
     const result = await Cache.swr(cacheKey, () => this._fetchStandingsFromNetwork(leagueId), { ttl: this._TTL.standings });

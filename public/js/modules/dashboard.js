@@ -295,8 +295,8 @@ const Dashboard = {
     const activeLeague = this._standingsLeague || leagues[0].id;
     const table = await API.getStandings(activeLeague);
 
-    const tabs = ['pts', 'wins', 'gf'];
-    const tabLabels = { pts: 'Pts', wins: 'Victorias', gf: 'Goles' };
+    const tabs = ['pts', 'wins', 'gf', 'scorers'];
+    const tabLabels = { pts: 'Pts', wins: 'Victorias', gf: 'Goles', scorers: 'Goleadores' };
     const activeTab = this._standingsTab || 'pts';
 
     const sortedForTab = (rows, tabKey) => {
@@ -308,6 +308,8 @@ const Dashboard = {
       }).slice(0, 5);
     };
 
+    const scorers = activeTab === 'scorers' ? await API.getScorers(activeLeague).catch(() => []) : null;
+    const renderScorers = () => (scorers && scorers.length) ? scorers.slice(0, 8).map((s, i) => `<tr><td class="pos">${i + 1}</td><td>${s.name}<small style="display:block;color:var(--text-muted);font-size:.62rem">${s.team || ''}</small></td><td style="color:var(--gold);font-weight:700">${s.goals}</td></tr>`).join('') : '<tr><td colspan="3" style="text-align:center;color:var(--text-muted);padding:10px">Goleadores no disponibles por ahora</td></tr>';
     const renderRows = (rows, tabKey) => rows.map((r, i) => {
       const val = tabKey === 'pts' ? r.pts : tabKey === 'wins' ? (r.w||0) : (r.gf||0);
       const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i+1}`;
@@ -339,19 +341,19 @@ const Dashboard = {
         </div>
         <table class="stats-table standings-mini">
           <thead>
-            <tr>
+            ${activeTab === 'scorers' ? '<tr><th>#</th><th>Jugador</th><th style="color:var(--gold)">Goles</th></tr>' : `<tr>
               <th>#</th>
               <th>Equipo</th>
               <th>PJ</th>
               <th style="color:var(--gold)">${tabLabels[activeTab]}</th>
-            </tr>
+            </tr>`}
           </thead>
           <tbody id="standings-rows">
-            ${renderRows(sortedForTab(table, activeTab), activeTab)}
+            ${activeTab === 'scorers' ? renderScorers() : renderRows(sortedForTab(table, activeTab), activeTab)}
           </tbody>
         </table>
         <p style="font-size:0.6rem;color:var(--text-muted);margin-top:4px;text-align:right">
-          Top 5 · ${leagues.find(l=>l.id===activeLeague)?.name || ''}
+          ${activeTab === 'scorers' ? 'Top goleadores' : 'Top 5'} · ${leagues.find(l=>l.id===activeLeague)?.name || ''}
         </p>
       </div>
     `;
@@ -366,7 +368,9 @@ const Dashboard = {
     el.querySelectorAll('.standings-tab-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         const key = btn.dataset.stab;
+        const redo = key === 'scorers' || this._standingsTab === 'scorers';
         this._standingsTab = key;
+        if (redo) return this.renderStandings();
         el.querySelectorAll('.standings-tab-btn').forEach(b => {
           b.classList.toggle('active', b.dataset.stab === key);
           b.style.background = b.dataset.stab === key ? 'var(--accent)' : 'transparent';

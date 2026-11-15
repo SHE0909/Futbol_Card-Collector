@@ -92,3 +92,26 @@ Lógica (gacha, Firebase, API ESPN, predicciones, álbum) sin tocar.
 ## Ronda 11 — Gacha
 - Probabilidades: GOAT 0.3% → 0.08%, Legendaria 0.7% → 0.35%, Épica 9% → 7.5%, Rara 20% → 22%. Garantía de legendaria: 50 → 80 tiradas.
 - Animaciones propias: Legendaria (anillo dorado giratorio, barrido de luz, chispas) y GOAT (anillo de fuego, brasas, temblor periódico) en las cartas obtenidas y en el Álbum; destello de pantalla completa (dorado/rojo) y vibración al sacarlas.
+
+## Ronda 12
+- Head Cards: el muñeco es solo **cabeza + botín**. El botín va pegado a la cabeza (sube y baja con ella, ya no se alarga hasta el suelo), solo golpea hacia donde mira (gira al cambiar de dirección) y el rebote se calcula con la normal del contacto (en 300 patadas simuladas, incluso en el aire, el balón salió siempre hacia adelante). El botín en reposo también es sólido.
+- Goleadores: nueva pestaña "Goleadores" junto a la tabla (La Liga, Premier, Champions). Backend: `GET /scorers?league=` (`scorersService.js`). **Aviso:** ESPN no documenta este endpoint para fútbol; el servidor prueba 5 rutas y deja en el log cuál funcionó (`[scorers] OK ...`). Si todas fallan, la pestaña dice "no disponibles". Pasar el log para ajustar.
+
+## Ronda 13 — Penales P2P
+- Online → "Sala · Penales": tanda 1v1 por código de sala. Cada ronda, el que patea apunta y elige potencia mientras el que ataja elige zona (a ciegas); el resultado se sincroniza y ambos lo ven igual. Sin recompensas (evita farmeo).
+- `p2p.js`: segundo canal **confiable y ordenado** para mensajes que no pueden perderse (tiro, portero, inicio/fin); el movimiento de Head Cards sigue por el canal rápido.
+- Probado con dos páginas simuladas: tanda completa sin bloqueos y con marcador idéntico en ambos lados.
+
+## Ronda 14 — Cierre de pendientes
+- **Goleadores**: ahora también en Seguimiento → Tablas (top 5 de La Liga, Premier y Champions con foto y escudo, debajo de cada tabla); el Panel ya los tenía. Backend: `scorersService.js` primero lee la página pública de ESPN (`espn.com/soccer/stats/_/league/<LIGA>/view/scoring`, tabla "Top Scorers") y deja las rutas JSON como respaldo. Parser probado con dos formatos de tabla; **no pude probarlo contra ESPN en vivo** (el sandbox no tiene salida a esa web): revisar el log `[scorers] OK (página) ...`.
+- **Emojis → íconos**: `EmojiIcons` en `app.js` cambia ~90 emojis de interfaz por SVG (heredan color/tamaño, con color semántico: oro, verde, rojo…). Banderas y el resto siguen con twemoji. Se aplica a todo el DOM (también al contenido dinámico) sin tocar cada módulo. Estilos al final de `pitch.css`.
+- **Head Cards (botín)**: verificado con simulación: 400 patadas (200 en pleno salto), 100 % salen hacia adelante en el instante del golpe; el botín no se alarga al saltar.
+- **P2P**: Head Cards y Penales por sala con código ya existen (Online). Sin cambios.
+
+## Ronda 14b — Correcciones
+- Tablas: "Error al cargar las tablas" era por usar `Icons` (icons.js no se carga en la app). Ahora usa el emoji ⚽ (se convierte en ícono solo).
+- Apuestas: el boleto ahora es fijo abajo (siempre visible); la apuesta se lee del campo al pulsar "Apostar"; si falla el guardado (reglas de Firestore / red) sale un aviso con el motivo en vez de no hacer nada (revisar consola `[Bets]`).
+
+## Ronda 14c — Apuestas
+- Error "Unsupported field value: undefined": las selecciones del boleto se limpian (JSON) antes de guardar en Firestore.
+- Tarjetas compactas (equipos + 1X2) y, al tocarlas, ventana emergente con todos los mercados (13 en pre-partido) en cuadrícula sin cortes; el boleto se arma ahí y luego "Ver boleto y apostar".

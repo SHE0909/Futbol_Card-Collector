@@ -12,6 +12,7 @@ const cors = require("cors");
 const matchesRoutes = require("./routes/matches");
 const matchRoutes = require("./routes/match");
 const standingsRoutes = require("./routes/standings");
+const scorersRoutes = require("./routes/scorers");
 const competitionsRoutes = require("./routes/competitions");
 const { notFoundHandler, errorHandler } = require("./middleware/errorHandler");
 
@@ -55,6 +56,7 @@ app.get("/", (req, res) => {
 app.use(matchesRoutes);
 app.use(matchRoutes);
 app.use(standingsRoutes);
+app.use(scorersRoutes);
 app.use(competitionsRoutes);
 
 // 404 y manejo de errores (siempre al final)

@@ -311,12 +311,25 @@ const Stats = {
     container.innerHTML = '<div class="spinner"></div>';
     try {
       const leagues = API.getMainLeagues();
-      const tables = await Promise.all(leagues.map(l => API.getStandings(l.id).catch(() => [])));
+      const [tables, scorers] = await Promise.all([
+        Promise.all(leagues.map(l => API.getStandings(l.id).catch(() => []))),
+        Promise.all(leagues.map(l => API.getScorers(l.id).catch(() => [])))
+      ]);
+      const scorersBlock = (list) => {
+        if (!list || !list.length) return `<p class="empty-state" style="font-size:0.7rem;margin:8px 0 0">Goleadores no disponibles por ahora.</p>`;
+        return `<div class="scorers-box"><div class="scorers-title">⚽ Goleadores</div>${list.slice(0, 5).map((s, i) => `
+          <div class="scorer-row${i === 0 ? ' top' : ''}">
+            <span class="scorer-pos">${i + 1}</span>
+            ${s.photo ? `<img class="scorer-photo" src="${s.photo}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.visibility='hidden'">` : '<span class="scorer-photo"></span>'}
+            <span class="scorer-name">${s.name}<small>${s.crest ? `<img src="${s.crest}" alt="" referrerpolicy="no-referrer" onerror="this.style.display='none'">` : ''}${s.team || ''}</small></span>
+            <span class="scorer-goals">${s.goals}</span>
+          </div>`).join('')}</div>`;
+      };
 
       container.innerHTML = leagues.map((l, idx) => {
         const rows = tables[idx] || [];
         if (!rows.length) {
-          return `<div class="group-table-wrap"><div class="group-table-title">${l.name}</div><p class="empty-state" style="font-size:0.72rem">Sin datos disponibles por ahora.</p></div>`;
+          return `<div class="group-table-wrap"><div class="group-table-title">${l.name}</div><p class="empty-state" style="font-size:0.72rem">Sin datos disponibles por ahora.</p>${scorersBlock(scorers[idx])}</div>`;
         }
         return `
           <div class="group-table-wrap" style="margin-bottom:1.2rem">
@@ -342,6 +355,7 @@ const Stats = {
                   </tr>`).join('')}
               </tbody>
             </table>
+            ${scorersBlock(scorers[idx])}
           </div>`;
       }).join('');
     } catch(err) {
