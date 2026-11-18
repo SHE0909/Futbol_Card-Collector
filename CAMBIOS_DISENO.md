@@ -121,3 +121,9 @@ Lógica (gacha, Firebase, API ESPN, predicciones, álbum) sin tocar.
 - Pendiente: `fig_l005` (Salah) no tiene imagen en el repo de assets.
 - Adivina: la foto es la figurita completa; ahora se recorta sobre la cara (`.mg-visual.photo`) y el desenfoque inicial baja de 16px a 11px.
 - Ojo: quien ya tenía una carta con un id verá ahora al jugador de la imagen (el id se conserva).
+
+## Ronda 15 — Relevo WebSocket + "¿Quién es mi jugador?"
+- **Respaldo para redes restrictivas** (universidad): `server/src/services/relay.js` (+ dependencia `ws`) expone `/relay?room=CODIGO` por el mismo puerto HTTP(S) del API. `p2p.js` conecta por relevo desde que se crea/une la sala y, si WebRTC no abre en 7 s (o falla), cambia solo al relevo. Head Cards, Penales y el juego nuevo no cambian. En la pantalla aparece "(por relevo)" cuando se usa.
+- **Nuevo juego P2P: ¿Quién es mi jugador?** (`whoami.js`): cada uno elige un jugador secreto; por turnos se pregunta por escrito y el otro solo responde SÍ/NO. 5 intentos: preguntar cuesta 1; arriesgar un nombre y fallar resta 2 (con ≤2 intentos, fallar = pierde); con 0 intentos hay que decir el nombre final. Incluye tablero para tachar, revancha y revelado de los dos secretos. Botón en Minijuegos → Online → Head Cards.
+- `sw.js` sube a `wcc-ues-v21` para forzar la descarga de los archivos nuevos.
+- Desplegar: el servidor necesita `npm install` (nueva dependencia `ws`); en Render se instala solo al desplegar.

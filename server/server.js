@@ -7,10 +7,14 @@
 
 const app = require("./src/app");
 const { startLiveUpdater } = require("./src/services/liveUpdater");
+const { attachRelay } = require("./src/services/relay");
 
 const PORT = process.env.PORT || 3001;
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`⚽ Futbol API corriendo en http://localhost:${PORT}`);
   startLiveUpdater();
 });
+
+// Relevo WebSocket para salas P2P en redes que bloquean WebRTC
+attachRelay(server);
