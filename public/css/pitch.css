@@ -903,3 +903,6 @@ button .emo-ico,.btn .emo-ico{margin-right:.15em}
 body.bet-modal-open{overflow:hidden}
 body.bet-modal-open .bets-slip{display:none!important}
 @media (max-width:520px){.bet-modal{padding:0;align-items:flex-end}.bm-box{border-radius:20px 20px 0 0;max-height:94vh}.bm-foot{flex-direction:column;align-items:stretch;text-align:center}}
+
+/* Adivina: la imagen es la figurita completa; se recorta sobre la cara */
+.mg-visual.photo{background-size:230%;background-position:38% 14%;background-repeat:no-repeat}

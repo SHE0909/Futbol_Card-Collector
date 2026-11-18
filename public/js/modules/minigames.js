@@ -69,7 +69,7 @@ const Arcade = {
           const left = Math.max(0, time - (performance.now() - t0) / 1000), f = left / time;
           ring.style.strokeDashoffset = C * (1 - f); sec.textContent = Math.ceil(left);
           ring.style.stroke = f > .5 ? '#3ddc84' : f > .25 ? '#ffd24d' : '#ff4d6d';
-          if (it.photoId && vis) vis.style.filter = `blur(${Math.round(f * 16)}px) brightness(${.35 + (1 - f) * .65})`;
+          if (it.photoId && vis) vis.style.filter = `blur(${Math.round(f * 11)}px) brightness(${.35 + (1 - f) * .65})`;
           if (left <= 5 && Math.abs(left - Math.round(left)) < .03) this._beep(500, .04);
           if (left <= 0) done(-1);
         }, 50);

@@ -115,3 +115,9 @@ Lógica (gacha, Firebase, API ESPN, predicciones, álbum) sin tocar.
 ## Ronda 14c — Apuestas
 - Error "Unsupported field value: undefined": las selecciones del boleto se limpian (JSON) antes de guardar en Firestore.
 - Tarjetas compactas (equipos + 1X2) y, al tocarlas, ventana emergente con todos los mercados (13 en pre-partido) en cuadrícula sin cortes; el boleto se arma ahí y luego "Ver boleto y apostar".
+
+## Ronda 14d — Figuritas y "Adivina"
+- Las imágenes de `wcc-assets/figuritas/<id>.png` son figuritas Panini de otros jugadores que los nombres de `gacha.js` (p. ej. `fig_e008` era "Bernardo Silva" pero la imagen es Musiala). Se reescribieron nombre, club, país, posición y rating de las 63 figuritas con imagen para que coincidan con lo impreso en cada una (se mantienen id y rareza).
+- Pendiente: `fig_l005` (Salah) no tiene imagen en el repo de assets.
+- Adivina: la foto es la figurita completa; ahora se recorta sobre la cara (`.mg-visual.photo`) y el desenfoque inicial baja de 16px a 11px.
+- Ojo: quien ya tenía una carta con un id verá ahora al jugador de la imagen (el id se conserva).
