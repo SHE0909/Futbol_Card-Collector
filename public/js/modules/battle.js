@@ -214,7 +214,7 @@ const Battle = {
         </div>
         <div class="battle-mode-card ${BattleAttempts.remaining('guess') === 0 ? 'bmode-exhausted' : ''}" id="bmode-guess">
           <div class="bmode-icon">🔮</div>
-          <div class="bmode-title">Adivina por Emoji</div>
+          <div class="bmode-title">Adivina el Jugador</div>
           <div class="bmode-desc">Mira el emoji característico e identifica al jugador entre 4 opciones. ¡Sin fallar!</div>
           <div class="bmode-reward">+1 tirada por acierto</div>
           <div class="bmode-attempts">Intentos hoy: ${BattleAttempts.remaining('guess')}/${BattleAttempts.MAX_DAILY}</div>

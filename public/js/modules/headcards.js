@@ -9,7 +9,8 @@
 // Física a paso fijo (60 Hz) -> el juego va igual en cualquier pantalla.
 
 const HeadCards = {
-  W: 800, H: 420, GROUND: 366, GW: 54, BAR: 366 - 100,
+  // Porterías el doble de altas (100 -> 200) para evitar el "camping" bajo el arco.
+  W: 800, H: 420, GROUND: 366, GW: 54, BAR: 366 - 200,
   MULT: { common: 1, rare: 1.07, epic: 1.14, legendary: 1.24, goat: 1.38 },
   COLORS: { common: '#7d8fb3', rare: '#3d8bff', epic: '#a35bff', legendary: '#ffc83d', goat: '#ff3355' },
   POS: {
@@ -46,6 +47,8 @@ const HeadCards = {
   async open(mode) {
     this._mode = mode; this._started = false; this._myReady = false; this.state = null;
     const user = await Auth.currentUser(); this._user = user;
+    const lock = this._lockLeft();
+    if (lock > 0) { if (mode?.type === 'p2p') P2P.close(); this._lockedDialog(lock); return; }
     const owned = [...(user.figuritas || [])].sort((a, b) => this._power(b) - this._power(a));
     this._owned = owned;
     this._sel = owned.find(f => f.id === user.headFighterId) || owned[0];
@@ -55,9 +58,64 @@ const HeadCards = {
   },
   _power(c) { const s = this.statsOf(c); return s.speed * 2 + s.jump + s.power; },
   close() {
+    document.getElementById('hc-dlg')?.remove(); this._paused = false;
     if (this._mode?.type === 'p2p') P2P.close();
     this._stop(); this._ov?.remove(); this._ov = null; document.body.style.overflow = '';
     if (typeof Online !== 'undefined' && document.getElementById('tab-battle')) Online.open();
+  },
+
+  // ------------------------------------------------ abandono: aviso y penalización
+  // 1 abandono al día = solo advertencia. 2.º abandono el mismo día = 2 h sin jugar Head Cards.
+  LOCK_MS: 2 * 60 * 60 * 1000,
+  _abKey() { return 'wcc_hc_abandon_' + (this._user?.uid || this._user?.email || 'anon'); },
+  _abLoad() {
+    const today = new Date().toDateString();
+    try { const d = JSON.parse(localStorage.getItem(this._abKey()) || 'null') || {}; return { day: today, count: d.day === today ? (d.count || 0) : 0, until: d.until || 0 }; }
+    catch (_) { return { day: today, count: 0, until: 0 }; }
+  },
+  _abSave(d) { try { localStorage.setItem(this._abKey(), JSON.stringify(d)); } catch (_) {} },
+  _lockLeft() { return Math.max(0, this._abLoad().until - Date.now()); },
+  _fmtLeft(ms) { const m = Math.ceil(ms / 60000), h = Math.floor(m / 60); return h ? `${h} h ${m % 60} min` : `${m} min`; },
+  _recordAbandon() {
+    const d = this._abLoad(); d.count++;
+    if (d.count >= 2) d.until = Date.now() + this.LOCK_MS;
+    this._abSave(d); return d;
+  },
+  // Diálogo propio (reemplaza confirm() del navegador). Reutilizable por otros juegos.
+  _dialog({ icon = '⚠️', title, text, ok = 'Aceptar', cancel = null, danger = false, onOk, onCancel }) {
+    document.getElementById('hc-dlg')?.remove();
+    const d = document.createElement('div'); d.className = 'hc-dlg'; d.id = 'hc-dlg';
+    d.innerHTML = `<div class="hc-dlg-box ${danger ? 'danger' : ''}" role="alertdialog" aria-modal="true">
+      <div class="hc-dlg-ic">${icon}</div><h3>${title}</h3><p>${text}</p>
+      <div class="hc-dlg-btns">${cancel ? `<button class="btn btn-primary" id="hc-dlg-no">${cancel}</button>` : ''}<button class="btn ${cancel ? '' : 'btn-primary'}" id="hc-dlg-ok">${ok}</button></div></div>`;
+    document.body.appendChild(d);
+    const done = cb => () => { d.remove(); cb?.(); };
+    d.querySelector('#hc-dlg-ok').onclick = done(onOk);
+    const no = d.querySelector('#hc-dlg-no'); if (no) { no.onclick = done(onCancel); no.focus(); } else d.querySelector('#hc-dlg-ok').focus();
+    return d;
+  },
+  _lockedDialog(ms) {
+    const at = new Date(Date.now() + ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    this._dialog({ icon: '⏳', danger: true, title: 'Head Cards bloqueado', text: `Abandonaste 2 partidas hoy. Podrás volver a jugar en <b>${this._fmtLeft(ms)}</b> (a las ${at}).`, ok: 'Entendido' });
+  },
+  // Pedir salir: antes de empezar o con la partida terminada se sale directo.
+  _requestExit() {
+    if (document.getElementById('hc-dlg')) { document.getElementById('hc-dlg').remove(); this._paused = false; return; }
+    const m = this._mode, playing = this.state && this.state !== 'end' && this.p1;
+    if (!playing || m.type === 'local') return this.close();
+    const first = this._abLoad().count === 0, online = m.type === 'p2p';
+    if (!online) this._paused = true;
+    this._dialog({
+      icon: first ? '⚠️' : '🚫', danger: !first,
+      title: '¿Salir de la partida?',
+      text: (first
+        ? 'Por <b>esta vez</b> no pasa nada: solo puedes abandonar <b>1 vez al día</b> sin penalización. Si abandonas una 2.ª vez hoy, <b>no podrás jugar Head Cards por 2 horas</b>.'
+        : 'Ya abandonaste una partida hoy. Si sales ahora quedarás <b>2 horas sin poder jugar Head Cards</b>.')
+        + (online ? '<br><small>Tu rival ganará por abandono.</small>' : ''),
+      cancel: 'Seguir jugando', ok: first ? 'Salir' : 'Salir y aceptar penalización',
+      onCancel: () => { this._paused = false; this._last = performance.now(); },
+      onOk: () => { const d = this._recordAbandon(); this._paused = false; this.close(); if (d.until > Date.now()) Toast.error('Penalización: 2 horas sin jugar Head Cards', 4500); else Toast.warn('Abandono registrado. El próximo abandono de hoy tendrá penalización', 4500); }
+    });
   },
   _bar(label, v, max) { return `<div class="hc-stat"><span>${label}</span><i><b style="width:${Math.min(100, v / max * 100)}%"></b></i></div>`; },
   _pick() {
@@ -152,10 +210,10 @@ const HeadCards = {
         <p class="hc-rotate">📱 Gira el teléfono en horizontal para jugar mejor</p>
         <p class="hc-help">A/D o ←/→ mover · W/↑ saltar · Espacio patear · Con la barra llena el tiro es SÚPER${this._mode.type === 'local' ? ' · J2: ←/→/↑ + Enter' : ''}</p>
       </div>`;
-    this._ov.querySelector('#hc-close').onclick = () => this.close();
+    this._ov.querySelector('#hc-close').onclick = () => this._requestExit();
     const cv = this._cv = this._ov.querySelector('#hc-canvas'); this._ctx = cv.getContext('2d');
     this._fit(); this._bg = this._buildBg();
-    this._kd = e => { this.keys[e.code] = true; if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault(); if (e.code === 'Escape') this.close(); };
+    this._kd = e => { this.keys[e.code] = true; if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault(); if (e.code === 'Escape') this._requestExit(); };
     this._ku = e => { this.keys[e.code] = false; };
     addEventListener('keydown', this._kd); addEventListener('keyup', this._ku); addEventListener('resize', this._rs = () => this._fit());
     this._ov.querySelectorAll('.hc-touch button').forEach(b => {
@@ -175,6 +233,7 @@ const HeadCards = {
   },
   _loop(now) {
     if (!this._raf) return;
+    if (this._paused) { this._last = now; this._acc = 0; this._draw(); this._raf = requestAnimationFrame(t => this._loop(t)); return; }
     this._acc += Math.min(0.05, (now - this._last) / 1000); this._last = now;
     if (this._guest) {
       this._acc = 0; if ((this._tick++ & 1) === 0) { const i = this._input(this.p1); P2P.send({ t: 'in', i: { l: !!i.l, r: !!i.r, j: !!i.j, k: !!i.k } }); }

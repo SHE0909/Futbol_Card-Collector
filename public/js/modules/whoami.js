@@ -144,7 +144,10 @@ const WhoAmI = {
     else if (S.phase === 'play') body = this._viewPlay();
     else body = this._viewEnd();
     this.ov.innerHTML = `<div class="wh-box">${head}<div class="wh-body">${body}</div></div>`;
-    this.ov.querySelector('#wh-exit').onclick = () => { if (S.phase === 'end' || confirm('¿Salir de la partida?')) this.close(true); };
+    this.ov.querySelector('#wh-exit').onclick = () => {
+      if (S.phase === 'end') return this.close(true);
+      HeadCards._dialog({ icon: '🚪', title: '¿Salir de la partida?', text: 'Si sales, tu rival ganará por abandono.', cancel: 'Seguir jugando', ok: 'Salir', onOk: () => this.close(true) });
+    };
     this._bind();
     const b = this.ov.querySelector('.wh-body'); if (b) b.scrollTop = S.phase === 'play' ? keepScroll : 0;
     if (S.phase === 'play') { const lg = this.ov.querySelector('.wh-log'); if (lg) lg.scrollTop = lg.scrollHeight; }
@@ -230,7 +233,7 @@ const WhoAmI = {
     const gl = m.querySelector('#wh-gl');
     const wire = () => gl.querySelectorAll('.wh-card').forEach(b => b.onclick = () => {
       const f = this._byId(b.dataset.id);
-      if (confirm(`¿Arriesgar a ${f.name}?`)) { m.remove(); this._guess(b.dataset.id); }
+      HeadCards._dialog({ icon: '🎯', title: `¿Arriesgar a ${f.name}?`, text: 'Si fallas, lo pagas. ¿Seguro?', cancel: 'Cancelar', ok: 'Arriesgar', onOk: () => { m.remove(); this._guess(b.dataset.id); } });
     });
     wire();
     m.querySelector('#wh-gs').oninput = e => { const k = e.target.value.trim().toLowerCase(); gl.innerHTML = this._grid(pool.filter(f => f.name.toLowerCase().includes(k)), null, 'pick'); wire(); if (window.parseEmojis) parseEmojis(gl); };

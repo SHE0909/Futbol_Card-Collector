@@ -150,9 +150,6 @@ body {
   color: var(--text-secondary);
 }
 .nav-btn span { font-size: 0.98rem; }
-/* Pestañas centradas; si no caben (1024 px) vuelven a alinearse al inicio y se desplazan */
-.app-nav > .nav-btn:first-child { margin-left: auto; }
-.app-nav > .nav-btn:last-child { margin-right: auto; }
 .nav-btn:hover { color: var(--pt-chalk); }
 .nav-btn.active { color: var(--pt-chalk); }
 .nav-btn.active::after {
@@ -954,3 +951,12 @@ body.wh-open{overflow:hidden}
 .wh-pop{position:absolute;inset:0;z-index:5;background:rgba(3,8,20,.94);display:flex}
 .wh-popbox{flex:1;display:flex;flex-direction:column;gap:8px;overflow:hidden}.wh-popbody{flex:1;overflow-y:auto;padding:0 14px 14px}
 @media (max-width:520px){.wh-ov{padding:0}.wh-box{height:100vh;border-radius:0;border-width:0}}
+
+/* Diálogo propio de salida / aviso (reemplaza confirm() del navegador) */
+.hc-dlg { position:fixed; inset:0; z-index:10050; display:grid; place-items:center; padding:1rem; background:rgba(2,5,16,.72); backdrop-filter:blur(4px); animation:hcFade .18s; }
+.hc-dlg-box { --c:#ffc83d; width:min(400px,92vw); text-align:center; color:#fff; padding:1.5rem 1.3rem 1.2rem; border-radius:20px; background:rgba(8,13,32,.97); border:2px solid var(--c); box-shadow:0 0 50px -8px var(--c); animation:hcPop .3s cubic-bezier(.2,1.6,.4,1); }
+.hc-dlg-box.danger { --c:#ff4d6d; }
+.hc-dlg-ic { font-size:2.6rem; line-height:1; } .hc-dlg-box h3 { margin:.5rem 0 .4rem; font-size:1.35rem; color:var(--c); }
+.hc-dlg-box p { margin:0 0 1.1rem; font-size:.92rem; line-height:1.45; opacity:.9; } .hc-dlg-box p small { display:block; margin-top:.4rem; opacity:.7; }
+.hc-dlg-btns { display:flex; flex-direction:column; gap:.5rem; } .hc-dlg-btns .btn { width:100%; padding:.7rem; }
+@keyframes hcFade { from { opacity:0; } }

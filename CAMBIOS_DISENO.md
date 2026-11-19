@@ -138,7 +138,3 @@ Lógica (gacha, Firebase, API ESPN, predicciones, álbum) sin tocar.
 - **Caras cortadas en ¿Quién es mi jugador?** El recorte de la figurita tenía un margen superior positivo: dejaba un hueco vacío arriba y solo mostraba el pelo. Ahora el círculo encuadra cabeza completa (pelo a barbilla). Misma corrección en la foto de "Adivina" (`.mg-visual.photo`), que cortaba el pelo.
 - `sw.js` sube a `wcc-ues-v22` para forzar la descarga de los archivos nuevos.
 - Verificado con simulación (jsdom + relevo WebSocket simulado): salida voluntaria y caída brusca disparan una sola vez el aviso; Head Cards, Penales y ¿Quién es mi jugador? dan la victoria al que se queda (perdiendo 0-2 / 1-3 / con 1 intento), sin duplicar resultados ni dar victoria si aún no empezó. El recorte de las caras se calculó sobre dos figuritas reales (Musiala, Yamal). No se probó en dos navegadores reales ni con WebRTC real.
-
-## Ronda 16b — Pestañas centradas
-- La barra superior (Home, Seguimiento, Gacha, Álbum, Minijuegos, Canjear, Predicciones, En Vivo, Perfil) ahora queda centrada, alineada con el saludo de la cabecera. Si en pantallas de ~1024 px no caben, se alinean al inicio y se pueden desplazar (no se corta ninguna pestaña).
-- `sw.js` sube a `wcc-ues-v23`.
