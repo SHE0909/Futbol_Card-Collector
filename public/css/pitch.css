@@ -150,6 +150,9 @@ body {
   color: var(--text-secondary);
 }
 .nav-btn span { font-size: 0.98rem; }
+/* Pestañas centradas; si no caben (1024 px) vuelven a alinearse al inicio y se desplazan */
+.app-nav > .nav-btn:first-child { margin-left: auto; }
+.app-nav > .nav-btn:last-child { margin-right: auto; }
 .nav-btn:hover { color: var(--pt-chalk); }
 .nav-btn.active { color: var(--pt-chalk); }
 .nav-btn.active::after {
