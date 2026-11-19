@@ -964,13 +964,16 @@ body.wh-open{overflow:hidden}
 /* Pestañas de navegación centradas (escritorio); si no caben, se alinean al inicio y hacen scroll */
 @media (min-width: 1024px) {
   .app-nav {
-    justify-content: center !important;
+    justify-content: flex-start !important; /* el centrado lo hacen los márgenes auto de ::before/::after */
     padding-inline: 1rem !important;   /* simétrico: ya no empuja el menú hacia la izquierda */
   }
   .nav-btn { flex: 0 0 auto; min-width: 84px; padding-left: 10px; padding-right: 10px; }
-  /* Centrado "seguro": centra si caben, y si no caben hace scroll sin recortar el primero */
-  .app-nav > .nav-btn:first-child { margin-left: auto; }
-  .app-nav > .nav-btn:last-child  { margin-right: auto; }
+  /* Centrado "seguro": dos pseudo-elementos vacíos con margen auto reparten el espacio
+     sobrante a ambos lados (no depende de qué botón sea el primero/último, así que
+     funciona aunque haya botones ocultos como "Admin"). Si no caben, hace scroll. */
+  .app-nav::before, .app-nav::after { content: ''; flex: 0 0 0; }
+  .app-nav::before { margin-left: auto; }
+  .app-nav::after  { margin-right: auto; }
 }
 
 /* ¿Quién es mi jugador? — reloj de 1 minuto por turno (Ronda 18) */
