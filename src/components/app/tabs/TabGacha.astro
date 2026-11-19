@@ -91,6 +91,18 @@
       </div>
     </div>
 
+    <div class="redeem-box" id="redeem-box">
+      <div class="redeem-head">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9a2 2 0 012-2h14a2 2 0 012 2v1.5a1.5 1.5 0 000 3V15a2 2 0 01-2 2H5a2 2 0 01-2-2v-1.5a1.5 1.5 0 000-3V9z"/><path d="M13 7v10" stroke-dasharray="2 2.4"/></svg>
+        <div><b>¿Tienes un código?</b><span>Canjéalo por tiradas gratis (una vez por cuenta)</span></div>
+      </div>
+      <div class="redeem-row">
+        <input id="redeem-code" type="text" maxlength="40" placeholder="Escribe tu código" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="Código promocional"/>
+        <button class="btn btn-primary" id="btn-redeem" type="button">Canjear</button>
+      </div>
+      <p class="redeem-msg" id="redeem-msg" role="status" aria-live="polite"></p>
+    </div>
+
     <div class="gacha-result" id="gacha-result" style="display:none;"></div>
 
     <div class="rarity-legend" aria-label="Probabilidades por rareza">

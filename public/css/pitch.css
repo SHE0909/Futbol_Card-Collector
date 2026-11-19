@@ -972,3 +972,15 @@ body.wh-open{overflow:hidden}
   .app-nav > .nav-btn:first-child { margin-left: auto; }
   .app-nav > .nav-btn:last-child  { margin-right: auto; }
 }
+
+/* ¿Quién es mi jugador? — reloj de 1 minuto por turno (Ronda 18) */
+.wh-timer{display:grid;grid-template-columns:1fr auto;align-items:center;gap:4px 10px;font-size:.82rem}
+.wh-timer .wh-tlbl{font-weight:700;color:var(--text-secondary,#aab)}
+.wh-timer b{font-size:1.15rem;font-variant-numeric:tabular-nums;color:var(--pt-cyan,#2fd6ff)}
+.wh-timer i{grid-column:1/-1;display:block;height:6px;border-radius:99px;background:rgba(255,255,255,.1);overflow:hidden}
+.wh-timer u{display:block;height:100%;background:var(--pt-cyan,#2fd6ff);transition:width .25s linear}
+.wh-timer.low b{color:#ff5a5a;animation:whBlink .7s steps(2) infinite}
+.wh-timer.low u{background:#ff5a5a}
+.wh-warn{margin:0;padding:6px 10px;border-radius:10px;font-size:.78rem;background:rgba(255,90,90,.12);color:#ff9a9a}
+.wh-msg.t{opacity:.85;border-style:dashed}
+@keyframes whBlink{50%{opacity:.35}}

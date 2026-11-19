@@ -238,6 +238,8 @@ const App = {
     }
 
     await this.loadUserData(user);
+    this._setupAdminUI();
+    try { Prizes.init(); } catch (e) { console.warn('Prizes.init falló', e); }
     // Rendimiento: la UI queda interactiva primero; lo pesado corre en segundo plano.
     this._bindNavEvents();
     this._bindGlobalEvents();
@@ -301,6 +303,12 @@ const App = {
     const u = user || await Auth.currentUser();
     if (!u) return;
     this.refreshHeader(u);
+  },
+
+  // Muestra la pestaña "Admin" solo a la cuenta admin (la seguridad real está en firestore.rules).
+  _setupAdminUI() {
+    const show = typeof Admin !== 'undefined' && Admin.isAdmin();
+    document.querySelectorAll('.nav-admin, .drawer-nav-admin').forEach(el => { el.style.display = show ? '' : 'none'; });
   },
 
   async refreshHeader(u = null) {
@@ -371,6 +379,7 @@ const App = {
       case 'battle':      await Battle.render(); break;
       case 'exchange':    await Exchange.render(); break;
       case 'profile':     await Profile.render(); break;
+      case 'admin':       if (typeof Admin !== 'undefined' && Admin.isAdmin()) await AdminPanel.render(); break;
       case 'live': {
         await this._applyLiveConfig();
         this._renderLiveAdminButton();

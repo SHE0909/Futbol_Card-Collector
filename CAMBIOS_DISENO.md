@@ -145,3 +145,22 @@ Lógica (gacha, Firebase, API ESPN, predicciones, álbum) sin tocar.
 - Título "Adivina por Emoji" -> "Adivina el Jugador".
 - Pestañas de navegación centradas en escritorio.
 - sw.js -> wcc-ues-v24.
+
+---
+# Ronda 18
+
+## Códigos canjeables (Sobres → "¿Tienes un código?")
+- `prizes.js` → `Prizes.redeem()`: transacción que valida el código, crea `redemptions/{CODIGO}_{uid}` (1 uso por cuenta, las reglas impiden repetirlo) y suma las tiradas. Los códigos tienen tiradas (por defecto 10) y límite de usos opcional.
+
+## Premios del admin (pestaña "Admin", solo para el UID de `admin.js`)
+- `admin-panel.js`: enviar carta / tiradas / monedas a uno o varios correos, crear/pausar/borrar códigos, historial con estado (pendiente / entregado) y cancelar pendientes.
+- El jugador con ese correo recibe el premio en vivo (o al entrar) con un mensaje de felicitación; si es carta, el mensaje sube de épica según la rareza (común → rara → épica → legendaria → GOAT).
+- **Hay que publicar `firestore.rules`** (colecciones nuevas: `prizes`, `codes`, `redemptions`).
+
+## ¿Quién es mi jugador? — reloj
+- 1 minuto por turno para preguntar/arriesgar. Si se acaba: pierde 1 intento, nadie responde, pasa el turno. 2 veces seguidas = descalificado (gana el rival). Se reinicia al preguntar o arriesgar. Mensaje nuevo `wh_skip`; el rival tiene un respaldo local (+6 s) por si el aviso no llega.
+
+- También hay reloj para RESPONDER SÍ/NO: 30 s. Si no responde, la pregunta se anula (el que preguntó recupera su intento y vuelve a preguntar), el que no respondió pierde 1 intento, y 2 veces seguidas = descalificado. Mensaje nuevo `wh_noans`, con el mismo respaldo local (+6 s). Así la partida no se puede trabar.
+
+## Otros
+- `sw.js` v25; `pitch.css` (reloj del juego) y `prizes.css` (nuevo).
