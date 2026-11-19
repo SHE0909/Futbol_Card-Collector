@@ -127,3 +127,14 @@ Lógica (gacha, Firebase, API ESPN, predicciones, álbum) sin tocar.
 - **Nuevo juego P2P: ¿Quién es mi jugador?** (`whoami.js`): cada uno elige un jugador secreto; por turnos se pregunta por escrito y el otro solo responde SÍ/NO. 5 intentos: preguntar cuesta 1; arriesgar un nombre y fallar resta 2 (con ≤2 intentos, fallar = pierde); con 0 intentos hay que decir el nombre final. Incluye tablero para tachar, revancha y revelado de los dos secretos. Botón en Minijuegos → Online → Head Cards.
 - `sw.js` sube a `wcc-ues-v21` para forzar la descarga de los archivos nuevos.
 - Desplegar: el servidor necesita `npm install` (nueva dependencia `ws`); en Render se instala solo al desplegar.
+
+## Ronda 16 — Abandono = victoria del otro + caras de "¿Quién es mi jugador?"
+- **Si un jugador se desconecta o sale en plena partida P2P, el otro gana.** Aplica a Head Cards, Penales y ¿Quién es mi jugador?, aunque el que se quedó fuera perdiendo.
+  - Head Cards: pantalla VICTORIA con "ganas por abandono" y los mismos +10 pts de un duelo P2P ganado (sin Revancha, el rival ya no está). Penales y ¿Quién es mi jugador? no tienen recompensas, solo cuentan la victoria.
+  - Solo cuenta si la partida ya empezó (en la pantalla de elegir luchador / jugador secreto no hay ganador y solo se cierra).
+  - Si el que pierde la conexión eres tú (`navigator.onLine === false`), no se te da la victoria: se cierra la partida.
+  - `p2p.js`: al salir a propósito (✕, Revancha→salir) o cerrar la pestaña se envía `{ __bye }`, así el rival lo sabe al instante (antes, en WebRTC podía tardar hasta ~30 s en notarlo). La caída brusca sigue detectándose por el canal / el relevo. Una sola notificación por desconexión (sin duplicados).
+  - Penales: `_finish` ya no puede ejecutarse dos veces (evita que un toque pendiente dispare un segundo resultado).
+- **Caras cortadas en ¿Quién es mi jugador?** El recorte de la figurita tenía un margen superior positivo: dejaba un hueco vacío arriba y solo mostraba el pelo. Ahora el círculo encuadra cabeza completa (pelo a barbilla). Misma corrección en la foto de "Adivina" (`.mg-visual.photo`), que cortaba el pelo.
+- `sw.js` sube a `wcc-ues-v22` para forzar la descarga de los archivos nuevos.
+- Verificado con simulación (jsdom + relevo WebSocket simulado): salida voluntaria y caída brusca disparan una sola vez el aviso; Head Cards, Penales y ¿Quién es mi jugador? dan la victoria al que se queda (perdiendo 0-2 / 1-3 / con 1 intento), sin duplicar resultados ni dar victoria si aún no empezó. El recorte de las caras se calculó sobre dos figuritas reales (Musiala, Yamal). No se probó en dos navegadores reales ni con WebRTC real.

@@ -905,7 +905,7 @@ body.bet-modal-open .bets-slip{display:none!important}
 @media (max-width:520px){.bet-modal{padding:0;align-items:flex-end}.bm-box{border-radius:20px 20px 0 0;max-height:94vh}.bm-foot{flex-direction:column;align-items:stretch;text-align:center}}
 
 /* Adivina: la imagen es la figurita completa; se recorta sobre la cara */
-.mg-visual.photo{background-size:230%;background-position:38% 14%;background-repeat:no-repeat}
+.mg-visual.photo{background-size:194%;background-position:30% 5.4%;background-repeat:no-repeat}
 
 /* ---- ¿Quién es mi jugador? (whoami.js) ---- */
 body.wh-open{overflow:hidden}
@@ -924,7 +924,7 @@ body.wh-open{overflow:hidden}
 .wh-card.out{opacity:.28;filter:grayscale(1)}
 .wh-face{position:relative;display:inline-grid;place-items:center;width:58px;height:58px;border-radius:50%;overflow:hidden;background:#16224a;flex:0 0 auto}
 .wh-face::before{content:attr(data-ini);position:absolute;font-weight:800;font-size:1.3rem;color:#6f7fb5}
-.wh-face img{position:relative;width:230%;max-width:none;margin:34% 0 0 -32%;pointer-events:none}
+.wh-face img{position:absolute;left:-28.2%;top:-8.2%;width:193.6%;max-width:none;height:auto;margin:0;pointer-events:none}
 .wh-face.big{width:96px;height:96px}
 .wh-bar{position:sticky;bottom:-12px;display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;background:linear-gradient(transparent,#0b1430 30%)}
 .wh-wait{display:grid;gap:8px;justify-items:center;text-align:center;padding:30px 0}

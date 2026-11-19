@@ -106,7 +106,15 @@ const HeadCards = {
       this.time = s.time; this.state = s.st === 'end' ? this.state : s.st; this.stT = s.stT; this.extra = s.ex; this.banner = s.bn; this.shake = s.sh;
     } else if (m.t === 'end' && this._guest) { this.p1.score = m.a; this.p2.score = m.b; this._finish(); }
   },
-  _p2pClosed() { if (this._ov && this.state !== 'end') { Toast.warn('El rival se desconectó'); this.close(); } },
+  _p2pClosed() {
+    if (!this._ov || this.state === 'end') return;
+    if (this.state && this.p1 && this._mode?.type === 'p2p') {
+      if (navigator.onLine === false) { Toast.warn('Perdiste la conexión'); return this.close(); }
+      Toast.warn('El rival se desconectó. ¡Ganas la partida!');
+      return this._finish(true);
+    }
+    Toast.warn('El rival se desconectó'); this.close();
+  },
 
   // ------------------------------------------------ juego
   _mk(card, side, human) {
@@ -319,10 +327,10 @@ const HeadCards = {
   },
 
   // ---- fin de partida + recompensas
-  async _finish() {
+  async _finish(forfeit = false) {
     if (this.state === 'end') return; this.state = 'end';
-    const g = this._guest, a = g ? this.p2.score : this.p1.score, b = g ? this.p1.score : this.p2.score, won = a > b, draw = a === b, m = this._mode;
-    if (m.type === 'p2p' && !g) P2P.send({ t: 'end', a: this.p1.score, b: this.p2.score }, true);
+    const g = this._guest, a = g ? this.p2.score : this.p1.score, b = g ? this.p1.score : this.p2.score, won = forfeit || a > b, draw = !forfeit && a === b, m = this._mode;
+    if (m.type === 'p2p' && !g && !forfeit) P2P.send({ t: 'end', a: this.p1.score, b: this.p2.score }, true);
     const u = await Auth.currentUser();
     let coins = 0, pts = 0, note = '';
     if (m.type !== 'local') {
@@ -340,9 +348,10 @@ const HeadCards = {
       <div class="hc-result" style="--c:${col}"><h2>${won ? '¡VICTORIA!' : draw ? 'EMPATE' : 'DERROTA'}</h2>
         <div class="hc-final">${a} - ${b}</div>
         ${m.type !== 'local' ? `<p>${pts >= 0 ? '+' : ''}${pts} pts${coins ? ` · +${coins} 🪙` : ''}</p>` : '<p>Partida local sin recompensas</p>'}
-        ${note ? `<small>${note}</small>` : ''}
-        <div><button class="btn btn-primary" id="hc-again">Revancha</button><button class="btn" id="hc-exit">Salir</button></div></div>`);
-    this._ov.querySelector('#hc-again').onclick = () => { if (m.type === 'p2p') return this.close(); this._stop(); this._pick(); };
+        ${forfeit ? '<small>El rival se desconectó: ganas por abandono</small>' : ''}${note ? `<small>${note}</small>` : ''}
+        <div>${forfeit ? '' : '<button class="btn btn-primary" id="hc-again">Revancha</button>'}<button class="btn" id="hc-exit">Salir</button></div></div>`);
+    const again = this._ov.querySelector('#hc-again');
+    if (again) again.onclick = () => { if (m.type === 'p2p') return this.close(); this._stop(); this._pick(); };
     this._ov.querySelector('#hc-exit').onclick = () => this.close();
   },
 

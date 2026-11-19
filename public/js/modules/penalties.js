@@ -10,7 +10,7 @@ const PenaltyGame = {
   W: 800, H: 450, G: { x: 150, y: 80, w: 500, h: 170 }, SPOT: { x: 400, y: 395 },
 
   start(opts = {}) {
-    this.p2p = !!opts.p2p; this._box = {}; this._wait2 = {};
+    this.p2p = !!opts.p2p; this._box = {}; this._wait2 = {}; this._done = false;
     this.u = 0; this.c = 0; this.log = []; this.round = 0; this.alive = true;
     this.ov = document.createElement('div'); this.ov.className = 'hc-overlay';
     this.ov.innerHTML = `<div class="hc-stage"><button class="hc-x" id="pg-x">✕</button>
@@ -45,7 +45,12 @@ const PenaltyGame = {
     if (m.t !== 'dive' && m.t !== 'shot') return;
     const key = m.t + m.i; this._box[key] = m; if (this._wait2[key]) { this._wait2[key](m); delete this._wait2[key]; }
   },
-  _p2pClosed() { if (this.alive && this.p2p) { Toast.warn('El rival se desconectó'); this.close(false); } },
+  _p2pClosed() {
+    if (!this.alive || !this.p2p) return;
+    if (navigator.onLine === false) { Toast.warn('Perdiste la conexión'); return this.close(false); }
+    Toast.warn('El rival se desconectó. ¡Ganas la tanda!');
+    this._finish(true);
+  },
   _wait(ms) { return new Promise(r => setTimeout(r, ms)); },
   _tween(ms, fn) { return new Promise(res => { const t0 = performance.now(); const f = now => { if (!this.alive) return res(); const k = Math.min(1, (now - t0) / ms); fn(k); k < 1 ? requestAnimationFrame(f) : res(); }; requestAnimationFrame(f); }); },
   _tap(msg) { this.help.textContent = msg; return new Promise(r => { this.click = r; }); },
@@ -70,10 +75,11 @@ const PenaltyGame = {
       }
     }
   },
-  _finish() {
+  _finish(forfeit = false) {
+    if (this._done) return; this._done = true;
     this.alive = false; cancelAnimationFrame(this._raf);
-    const w = this.u > this.c, d = this.u === this.c;
-    this.ov.querySelector('.hc-stage').insertAdjacentHTML('beforeend', `<div class="hc-result" style="--c:${w ? '#3ddc84' : '#ff4d6d'}"><h2>${w ? '¡GANASTE LA TANDA!' : 'LA PERDISTE'}</h2>${this.p2p ? '<small>Duelo P2P · sin recompensas</small>' : ''}<div class="hc-final">${this.u} - ${this.c}</div><button class="btn btn-primary" id="pg-ok">Continuar</button></div>`);
+    const w = forfeit || this.u > this.c, d = !forfeit && this.u === this.c;
+    this.ov.querySelector('.hc-stage').insertAdjacentHTML('beforeend', `<div class="hc-result" style="--c:${w ? '#3ddc84' : '#ff4d6d'}"><h2>${w ? '¡GANASTE LA TANDA!' : 'LA PERDISTE'}</h2>${forfeit ? '<small>El rival se desconectó: ganas por abandono</small>' : this.p2p ? '<small>Duelo P2P · sin recompensas</small>' : ''}<div class="hc-final">${this.u} - ${this.c}</div><button class="btn btn-primary" id="pg-ok">Continuar</button></div>`);
     this.ov.querySelector('#pg-ok').onclick = () => {
       if (this.p2p) { this.close(true); if (typeof Online !== 'undefined') Online.open(); return; }
       this.close(true); Battle._endPenaltyBattle(this.u, this.c);

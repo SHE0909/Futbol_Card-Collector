@@ -46,7 +46,12 @@ const WhoAmI = {
   },
   _p2pClosed() {
     if (!this.alive || !this.S) return;
-    if (this.S.phase !== 'end') { this.S.phase = 'end'; this.S.result = { dc: true }; this.render(); }
+    const S = this.S; if (S.phase === 'end') return;
+    if (S.phase === 'play' && navigator.onLine !== false) {
+      Toast.warn('El rival se desconectó. ¡Ganas la partida!');
+      return this._finish(true, 'El rival se desconectó: ganas por abandono', true);
+    }
+    S.phase = 'end'; S.result = { dc: true }; this.render();
   },
   _send(o) { P2P.send(o, true); },
 
@@ -94,9 +99,9 @@ const WhoAmI = {
       S.turn = first === 'host' ? 'me' : 'opp'; S.sub = S.turn === 'me' ? 'ask' : 'wait';
     }
   },
-  _finish(won, why) {
-    const S = this.S; S.phase = 'end'; S.result = { won, why };
-    this._send({ t: 'wh_reveal', secret: S.pick });
+  _finish(won, why, left = false) {
+    const S = this.S; S.phase = 'end'; S.result = { won, why, left };
+    if (!left) this._send({ t: 'wh_reveal', secret: S.pick });
     this.render();
   },
   _restart() { this.S = this._fresh(); this.render(); },
@@ -186,7 +191,7 @@ const WhoAmI = {
     return `<div class="wh-end ${r.won ? 'win' : 'lose'}"><h2>${r.won ? '🏆 ¡Ganaste!' : '💀 Perdiste'}</h2><p>${this._esc(r.why || '')}</p>
       <div class="wh-reveal"><div><small>Tu jugador</small>${this._face(mine, 'big')}<b>${this._esc(mine.name)}</b></div>
       <div><small>Su jugador</small>${opp ? this._face(opp, 'big') + `<b>${this._esc(opp.name)}</b>` : '<span class="wh-sub">…</span>'}</div></div>
-      <div class="wh-yn"><button class="btn btn-primary" id="wh-again" ${S.again ? 'disabled' : ''}>${S.again ? 'Esperando revancha…' : S.oppAgain ? 'Aceptar revancha' : 'Revancha'}</button><button class="btn" id="wh-leave">Salir</button></div></div>`;
+      <div class="wh-yn">${r.left ? '' : `<button class="btn btn-primary" id="wh-again" ${S.again ? 'disabled' : ''}>${S.again ? 'Esperando revancha…' : S.oppAgain ? 'Aceptar revancha' : 'Revancha'}</button>`}<button class="btn" id="wh-leave">Salir</button></div></div>`;
   },
   _bind() {
     const q = id => this.ov.querySelector(id), S = this.S;
