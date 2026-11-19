@@ -64,12 +64,39 @@ const AdminPanel = {
       </div>
 
       <section class="adm-card adm-wide">
+        <div class="adm-head"><h3>🎰 Sorteos (monedas)</h3><button class="btn" id="adm-rf-refresh" type="button">Actualizar</button></div>
+        <p class="adm-hint">Al crear un sorteo, todos ven un <b>anuncio rojo</b> arriba (junto a tiradas y monedas) con su info y el botón para participar. Cuando llegue la hora, mira cuántos se anotaron y pulsa <b>🎲 Sortear</b>: se elige un inscrito al azar y todos los inscritos ven el resultado. El sorteo NO se hace solo: lo confirmas tú.</p>
+        <div class="adm-row two">
+          <div><label class="adm-lbl">Título (opcional)</label><input id="adm-rf-title" class="adm-input" maxlength="60" placeholder="Ej: Sorteo de las 8 PM"></div>
+          <div><label class="adm-lbl">Costo para participar (monedas)</label><input id="adm-rf-cost" class="adm-input" type="number" min="0" max="100000" value="50"></div>
+        </div>
+        <label class="adm-lbl">Premio</label>
+        <div class="adm-seg" id="adm-rf-type">
+          <button type="button" class="on" data-t="pack">📦 Sobre</button>
+          <button type="button" data-t="tiradas">🎟️ Tiradas</button>
+        </div>
+        <div id="adm-rf-pack-box"><label class="adm-lbl">Categoría del sobre</label>
+          <select id="adm-rf-rarity" class="adm-input">${Object.entries(Raffles.PACKS).map(([k, v]) => `<option value="${k}">${v.icon} Sobre ${v.label}</option>`).join('')}</select></div>
+        <div id="adm-rf-amt-box" style="display:none"><label class="adm-lbl">Cantidad de tiradas</label><input id="adm-rf-amt" class="adm-input" type="number" min="1" max="${Prizes.MAX_TIRADAS}" value="10"></div>
+        <label class="adm-lbl">Cierra / se sortea a las</label>
+        <div class="adm-row">
+          <div><input id="adm-rf-end" class="adm-input" type="datetime-local"></div>
+          <button class="btn" type="button" data-rfq="30" title="En 30 minutos">+30 min</button>
+          <button class="btn" type="button" data-rfq="hour" title="Próxima hora en punto">Próx. hora</button>
+          <button class="btn" type="button" data-rfq="60" title="En 1 hora">+1 h</button>
+        </div>
+        <button class="btn btn-primary adm-send" id="adm-rf-create" type="button">Crear sorteo y publicar anuncio</button>
+        <p class="adm-msg" id="adm-rf-msg" role="status"></p>
+        <div id="adm-rf-list" class="adm-list"><p class="adm-empty">Cargando…</p></div>
+      </section>
+
+      <section class="adm-card adm-wide">
         <div class="adm-head"><h3>📋 Historial de premios</h3><button class="btn" id="adm-refresh" type="button">Actualizar</button></div>
         <div id="adm-prizes" class="adm-list"><p class="adm-empty">Cargando…</p></div>
       </section>`;
 
     this._bind(root);
-    this.loadCodes(); this.loadPrizes();
+    this.loadCodes(); this.loadPrizes(); this.loadRaffles();
   },
 
   _bind(root) {
@@ -90,6 +117,21 @@ const AdminPanel = {
     q('#adm-refresh').onclick = () => { this.loadPrizes(); this.loadCodes(); };
     q('#adm-codes').addEventListener('click', e => this._codeAction(e));
     q('#adm-prizes').addEventListener('click', e => this._prizeAction(e));
+    // ---- sorteos
+    let rtype = 'pack';
+    q('#adm-rf-type').addEventListener('click', e => {
+      const b = e.target.closest('button[data-t]'); if (!b) return; rtype = b.dataset.t;
+      root.querySelectorAll('#adm-rf-type button').forEach(x => x.classList.toggle('on', x === b));
+      q('#adm-rf-pack-box').style.display = rtype === 'pack' ? '' : 'none';
+      q('#adm-rf-amt-box').style.display = rtype === 'tiradas' ? '' : 'none';
+    });
+    q('#adm-rf-end').value = this._localInput(this._nextHour());
+    root.querySelectorAll('[data-rfq]').forEach(b => b.onclick = () => {
+      const v = b.dataset.rfq; q('#adm-rf-end').value = this._localInput(v === 'hour' ? this._nextHour() : Date.now() + Number(v) * 60000);
+    });
+    q('#adm-rf-create').onclick = () => this.createRaffle(rtype);
+    q('#adm-rf-refresh').onclick = () => this.loadRaffles();
+    q('#adm-rf-list').addEventListener('click', e => this._raffleAction(e));
   },
 
   _msg(id, text, cls) { const el = document.getElementById(id); if (el) { el.textContent = text; el.className = 'adm-msg ' + (cls || ''); } },
@@ -98,6 +140,94 @@ const AdminPanel = {
     if (typeof HeadCards !== 'undefined' && HeadCards._dialog)
       HeadCards._dialog({ icon: '🏆', title, text, cancel: 'Cancelar', ok: 'Confirmar', onOk });
     else if (confirm(title + '\n' + text.replace(/<[^>]+>/g, ''))) onOk();
+  },
+
+  // -------------------------------------------------------------- sorteos
+  _nextHour() { const d = new Date(); d.setMinutes(0, 0, 0); d.setHours(d.getHours() + 1); return d.getTime(); },
+  _localInput(ms) { const d = new Date(ms), p = n => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`; },
+
+  createRaffle(type) {
+    const q = id => document.getElementById(id);
+    const endsAtMs = new Date(q('adm-rf-end').value).getTime();
+    const cost = Math.floor(Number(q('adm-rf-cost').value));
+    const title = q('adm-rf-title').value.trim().slice(0, 60);
+    if (!Number.isFinite(endsAtMs) || endsAtMs <= Date.now() + 30000) return this._msg('adm-rf-msg', 'Elige una hora de cierre en el futuro', 'err');
+    if (!(cost >= 0) || cost > 100000) return this._msg('adm-rf-msg', 'El costo debe estar entre 0 y 100000 monedas', 'err');
+    let prize;
+    if (type === 'pack') prize = { type: 'pack', rarity: q('adm-rf-rarity').value };
+    else {
+      const n = Math.floor(Number(q('adm-rf-amt').value));
+      if (!(n >= 1) || n > Prizes.MAX_TIRADAS) return this._msg('adm-rf-msg', `Las tiradas deben estar entre 1 y ${Prizes.MAX_TIRADAS}`, 'err');
+      prize = { type: 'tiradas', amount: n };
+    }
+    const when = new Date(endsAtMs).toLocaleString('es', { dateStyle: 'short', timeStyle: 'short' });
+    this._confirm('¿Publicar el sorteo?', `Premio: <b>${this._esc(Raffles.prizeLabel(prize))}</b><br>Costo: <b>${cost} 🪙</b><br>Se sortea: <b>${when}</b><br>Todos los jugadores verán el anuncio rojo.`, async () => {
+      const btn = q('adm-rf-create'); btn.disabled = true;
+      try {
+        await fbDB.collection('raffles').add({ title, prize, cost, endsAtMs, endsAt: new Date(endsAtMs).toISOString(), status: 'open',
+          createdAt: new Date().toISOString(), createdBy: fbAuth.currentUser.uid, claimed: false });
+        this._msg('adm-rf-msg', '✅ Sorteo publicado: ya aparece el anuncio rojo a todos', 'ok');
+        q('adm-rf-title').value = ''; q('adm-rf-end').value = this._localInput(this._nextHour());
+        this.loadRaffles();
+      } catch (e) {
+        console.error('[Admin] crear sorteo', e);
+        this._msg('adm-rf-msg', 'No se pudo crear: ¿publicaste las nuevas reglas de Firestore?', 'err');
+      }
+      btn.disabled = false;
+    });
+  },
+
+  async loadRaffles() {
+    const box = document.getElementById('adm-rf-list'); if (!box) return;
+    try {
+      const snap = await fbDB.collection('raffles').orderBy('createdAt', 'desc').limit(25).get();
+      if (snap.empty) { box.innerHTML = '<p class="adm-empty">Todavía no has creado sorteos.</p>'; return; }
+      box.innerHTML = snap.docs.map(d => {
+        const r = d.data(), open = r.status === 'open', closed = open && r.endsAtMs <= Date.now();
+        const when = new Date(r.endsAtMs).toLocaleString('es', { dateStyle: 'short', timeStyle: 'short' });
+        const badge = open ? (closed ? '<span class="adm-badge pend">Listo para sortear</span>' : '<span class="adm-badge pend">Abierto</span>') : '<span class="adm-badge done">Sorteado</span>';
+        const res = open ? '' : (r.winnerName ? ` · 🏆 ${this._esc(r.winnerName)} (${Number(r.entriesCount || 0)} inscritos)${r.claimed ? ' · premio reclamado' : ' · sin reclamar'}` : ' · sin inscritos');
+        return `<div class="adm-item"><div class="adm-item-main"><b>${this._esc(Raffles.prizeLabel(r.prize))}${r.title ? ' · ' + this._esc(r.title) : ''}</b>
+          <span>Cuesta ${Number(r.cost)} 🪙 · ${open ? 'sorteo' : 'se sorteó'}: ${when}${res}</span>
+          <small id="adm-rf-n-${d.id}"></small></div>${badge}
+          ${open ? `<button class="btn adm-x" data-rfcount="${d.id}" title="Ver cuántos se anotaron">👥</button>
+          <button class="btn btn-primary adm-x" data-rfdraw="${d.id}" title="Elegir ganador al azar">🎲 Sortear</button>
+          <button class="btn adm-x" data-rfdel="${d.id}" title="Cancelar sorteo">✕</button>` : ''}</div>`;
+      }).join('');
+    } catch (e) {
+      console.warn('[Admin] sorteos', e);
+      box.innerHTML = '<p class="adm-empty">No se pudieron cargar los sorteos (revisa las reglas de Firestore).</p>';
+    }
+  },
+
+  async _rfCount(id) {
+    const s = await fbDB.collection('raffles').doc(id).collection('entries').get();
+    const el = document.getElementById('adm-rf-n-' + id);
+    if (el) el.textContent = `👥 ${s.size} inscrito${s.size === 1 ? '' : 's'}` + (s.size ? ': ' + s.docs.map(d => d.data().email).join(', ') : '');
+    return s.size;
+  },
+
+  async _raffleAction(e) {
+    const t = e.target.closest('button'); if (!t) return;
+    try {
+      if (t.dataset.rfcount) { t.disabled = true; await this._rfCount(t.dataset.rfcount); t.disabled = false; }
+      else if (t.dataset.rfdraw) {
+        const id = t.dataset.rfdraw, n = await this._rfCount(id);
+        if (!n) return Toast.warn('Todavía no hay inscritos');
+        const doc = await fbDB.collection('raffles').doc(id).get(), early = doc.data().endsAtMs > Date.now();
+        this._confirm('¿Sortear ahora?', `Hay <b>${n} inscrito${n === 1 ? '' : 's'}</b>.${early ? '<br>⚠️ Aún no llega la hora de cierre: al sortear se cierran las inscripciones.' : ''}<br>Se elegirá un ganador al azar y todos los inscritos verán el resultado.`, async () => {
+          try {
+            const r = await Raffles.draw(id);
+            this._msg('adm-rf-msg', `🏆 Ganador: ${r.winner.name} (${r.winner.email}) · ${r.count} inscritos`, 'ok');
+            this.loadRaffles();
+          } catch (err) { console.error(err); Toast.error('No se pudo sortear'); }
+        });
+      } else if (t.dataset.rfdel) {
+        const id = t.dataset.rfdel, n = await this._rfCount(id);
+        if (n > 0) return Toast.warn('Ya hay inscritos que pagaron: sortea en vez de cancelar');
+        this._confirm('¿Cancelar este sorteo?', 'Nadie se ha inscrito. Se borrará el anuncio.', async () => { await fbDB.collection('raffles').doc(id).delete(); this.loadRaffles(); });
+      }
+    } catch (err) { console.error(err); Toast.error('No se pudo completar la acción'); }
   },
 
   // ------------------------------------------------------------- premios

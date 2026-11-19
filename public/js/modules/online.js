@@ -242,7 +242,7 @@ const Online = {
       </div>
       <h4 class="online-h">⚡ Duelo en vivo con un amigo (P2P)</h4>
       <p class="online-sub">Crea una sala y pásale el código, o únete con el suyo. Se conectan directo entre navegadores; si tu red lo bloquea (universidad), pasa solo por el servidor.</p>
-      <div class="head-cpu-row"><button class="btn btn-primary" id="p2p-host">🔑 Sala · Head Cards</button><button class="btn btn-primary" id="p2p-host-pen">🔑 Sala · Penales</button><button class="btn btn-primary" id="p2p-host-who">🔑 Sala · ¿Quién es mi jugador?</button>
+      <div class="head-cpu-row"><button class="btn btn-primary" id="p2p-host">🔑 Sala · Head Cards</button><button class="btn btn-primary" id="p2p-host-pen">🔑 Sala · Penales</button><button class="btn btn-primary" id="p2p-host-who">🔑 Sala · ¿Quién es mi jugador?</button><button class="btn btn-primary" id="p2p-host-wd">🔑 Sala · Wordle de fútbol</button>
         <input id="p2p-code" class="online-select" style="max-width:130px;text-transform:uppercase" maxlength="5" placeholder="CÓDIGO">
         <button class="btn" id="p2p-join">Unirme</button></div>
       <div id="p2p-status" class="online-sub"></div>`;
@@ -255,13 +255,13 @@ const Online = {
   }
 
   ,
-  _openGame(g) { this._game = g; if (g === 'pen') PenaltyGame.start({ p2p: true }); else if (g === 'who') WhoAmI.start(); else HeadCards.open({ type: 'p2p' }); },
+  _openGame(g) { this._game = g; if (g === 'pen') PenaltyGame.start({ p2p: true }); else if (g === 'who') WhoAmI.start(); else if (g === 'wd') FootWordle.start(); else HeadCards.open({ type: 'p2p' }); },
   _bindP2P(body) {
     const st = body.querySelector('#p2p-status'); HeadCards._remoteCard = null;
     const cb = {
       onOpen: () => { st.textContent = P2P.viaRelay ? '¡Conectado! (por relevo: tu red bloquea la conexión directa)' : '¡Conectado!'; if (P2P.role === 'host') { P2P.send({ t: 'game', g: this._pickGame }, true); this._openGame(this._pickGame); } },
-      onMsg: m => { if (m.t === 'game') this._openGame(m.g); else if (this._game === 'pen') PenaltyGame._onMsg(m); else if (this._game === 'who') WhoAmI._onMsg(m); else HeadCards._onMsg(m); },
-      onClose: () => { if (this._game === 'pen') PenaltyGame._p2pClosed(); else if (this._game === 'who') WhoAmI._p2pClosed(); else HeadCards._p2pClosed(); },
+      onMsg: m => { if (m.t === 'game') this._openGame(m.g); else if (this._game === 'pen') PenaltyGame._onMsg(m); else if (this._game === 'who') WhoAmI._onMsg(m); else if (this._game === 'wd') FootWordle._onMsg(m); else HeadCards._onMsg(m); },
+      onClose: () => { if (this._game === 'pen') PenaltyGame._p2pClosed(); else if (this._game === 'who') WhoAmI._p2pClosed(); else if (this._game === 'wd') FootWordle._p2pClosed(); else HeadCards._p2pClosed(); },
       onFail: e => { st.textContent = ''; Toast.error(this._isDenied(e) ? this._DENIED_MSG : (e.message || 'No se pudo conectar')); P2P.close(); }
     };
     const host = async game => {
@@ -272,6 +272,7 @@ const Online = {
     body.querySelector('#p2p-host').onclick = () => host('head');
     body.querySelector('#p2p-host-pen').onclick = () => host('pen');
     body.querySelector('#p2p-host-who').onclick = () => host('who');
+    body.querySelector('#p2p-host-wd').onclick = () => host('wd');
     body.querySelector('#p2p-join').onclick = async () => {
       const code = body.querySelector('#p2p-code').value; if (code.trim().length < 5) return Toast.warn('Escribe el código de 5 letras');
       st.textContent = 'Conectando…'; try { await P2P.join(code, cb); } catch (e) { cb.onFail(e); }

@@ -240,6 +240,7 @@ const App = {
     await this.loadUserData(user);
     this._setupAdminUI();
     try { Prizes.init(); } catch (e) { console.warn('Prizes.init falló', e); }
+    try { Raffles.init(); } catch (e) { console.warn('Raffles.init falló', e); }
     // Rendimiento: la UI queda interactiva primero; lo pesado corre en segundo plano.
     this._bindNavEvents();
     this._bindGlobalEvents();

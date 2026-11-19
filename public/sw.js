@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'wcc-ues-v25';
+const CACHE_VERSION = 'wcc-ues-v26';
 const BASE = '/Futbol_Card-Collector';
 
 const STATIC_ASSETS = [

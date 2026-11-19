@@ -157,6 +157,7 @@ const HeadCards = {
   _onMsg(m) {
     if (m.t === 'card') { this._remoteCard = m.card; this._tryGo(); }
     else if (m.t === 'go') { if (this._myReady && this._remoteCard && !this._started) { this._started = true; this._start(); } }
+    else if (m.t === 'rm') { this._rmRemote = true; const n = this._ov?.querySelector('#hc-rnote'); if (n && this.state === 'end') n.textContent = '🔁 Tu rival quiere la revancha'; this._rmCheck(); }
     else if (m.t === 'in') this.remoteIn = m.i;
     else if (m.t === 's' && this._guest && this.p1) {
       const s = m.s; Object.assign(this.p1, s.a); Object.assign(this.p2, s.c); Object.assign(this.ball, s.b);
@@ -165,7 +166,13 @@ const HeadCards = {
     } else if (m.t === 'end' && this._guest) { this.p1.score = m.a; this.p2.score = m.b; this._finish(); }
   },
   _p2pClosed() {
-    if (!this._ov || this.state === 'end') return;
+    if (!this._ov) return;
+    if (this.state === 'end') { // ya terminó: el rival salió de la sala (no cuenta como victoria nueva)
+      const ag = this._ov.querySelector('#hc-again'), n = this._ov.querySelector('#hc-rnote');
+      if (ag) { ag.disabled = true; ag.textContent = 'El rival salió'; }
+      if (n) n.textContent = 'Tu rival salió de la sala';
+      this._rmMine = this._rmRemote = false; return;
+    }
     if (this.state && this.p1 && this._mode?.type === 'p2p') {
       if (navigator.onLine === false) { Toast.warn('Perdiste la conexión'); return this.close(); }
       Toast.warn('El rival se desconectó. ¡Ganas la partida!');
@@ -386,32 +393,56 @@ const HeadCards = {
   },
 
   // ---- fin de partida + recompensas
+  // El resultado se muestra DE INMEDIATO (con "calculando recompensa…") y la recompensa se
+  // rellena en cuanto se guarda; así el ganador siempre la ve, aunque la red tarde.
   async _finish(forfeit = false) {
     if (this.state === 'end') return; this.state = 'end';
     const g = this._guest, a = g ? this.p2.score : this.p1.score, b = g ? this.p1.score : this.p2.score, won = forfeit || a > b, draw = !forfeit && a === b, m = this._mode;
     if (m.type === 'p2p' && !g && !forfeit) P2P.send({ t: 'end', a: this.p1.score, b: this.p2.score }, true);
-    const u = await Auth.currentUser();
-    let coins = 0, pts = 0, note = '';
-    if (m.type !== 'local') {
-      if (won) {
-        pts = { easy: 5, normal: 12, hard: 20, online: 25, p2p: 10 }[m.type] + (m.type === 'online' && (m.rival.headPts || 0) > (u.headPts || 0) ? 10 : 0);
-        coins = { easy: 10, normal: 20, hard: 35, online: 40, p2p: 0 }[m.type];
-        if (coins > 0 && !BattleAttempts.consume('headrewards')) { coins = 0; note = 'Ya cobraste las 2 recompensas de monedas de hoy (los puntos sí cuentan).'; }
-        u.headWins = (u.headWins || 0) + 1;
-      } else if (draw) pts = 3; else { u.headLosses = (u.headLosses || 0) + 1; if (m.type === 'online') pts = -8; }
-      u.headPts = Math.max(0, (u.headPts || 0) + pts); u.monedas = (u.monedas || 0) + coins; u.headFighterId = this._sel.id;
-      try { await Auth.updateUser(u); Online.syncProfile(u, true); App.refreshHeader?.(u); } catch (_) {}
-    }
-    const col = won ? '#3ddc84' : draw ? '#ffd24d' : '#ff4d6d';
-    this._ov.querySelector('.hc-stage').insertAdjacentHTML('beforeend', `
+    this._rmMine = this._rmRemote = false;
+    const col = won ? '#3ddc84' : draw ? '#ffd24d' : '#ff4d6d', p2p = m.type === 'p2p', stage = this._ov?.querySelector('.hc-stage');
+    if (!stage) return;
+    stage.insertAdjacentHTML('beforeend', `
       <div class="hc-result" style="--c:${col}"><h2>${won ? '¡VICTORIA!' : draw ? 'EMPATE' : 'DERROTA'}</h2>
         <div class="hc-final">${a} - ${b}</div>
-        ${m.type !== 'local' ? `<p>${pts >= 0 ? '+' : ''}${pts} pts${coins ? ` · +${coins} 🪙` : ''}</p>` : '<p>Partida local sin recompensas</p>'}
-        ${forfeit ? '<small>El rival se desconectó: ganas por abandono</small>' : ''}${note ? `<small>${note}</small>` : ''}
-        <div>${forfeit ? '' : '<button class="btn btn-primary" id="hc-again">Revancha</button>'}<button class="btn" id="hc-exit">Salir</button></div></div>`);
+        <div class="hc-rew" id="hc-rew">${m.type === 'local' ? '<p>Partida local sin recompensas</p>' : '<p class="hc-rew-wait">⏳ Calculando tu recompensa…</p>'}</div>
+        ${forfeit ? '<small>El rival se desconectó: ganas por abandono</small>' : ''}<small id="hc-rnote"></small>
+        <div class="hc-rbtns">${forfeit ? '' : '<button class="btn btn-primary" id="hc-again">Revancha</button>'}<button class="btn" id="hc-exit">Salir</button></div></div>`);
     const again = this._ov.querySelector('#hc-again');
-    if (again) again.onclick = () => { if (m.type === 'p2p') return this.close(); this._stop(); this._pick(); };
+    if (again) again.onclick = () => {
+      if (!p2p) { this._stop(); return this._pick(); }
+      // P2P: la revancha es de a dos. Solo empieza cuando AMBOS la aceptan (nadie sale de la sala por pedirla).
+      this._rmMine = true; P2P.send({ t: 'rm' }, true);
+      again.disabled = true; again.textContent = 'Esperando al rival…'; this._rmCheck();
+    };
     this._ov.querySelector('#hc-exit').onclick = () => this.close();
+
+    // ---- recompensas (se guardan después de mostrar el resultado)
+    let coins = 0, pts = 0, note = '';
+    if (m.type !== 'local') {
+      try {
+        const u = await Auth.currentUser();
+        if (won) {
+          pts = { easy: 5, normal: 12, hard: 20, online: 25, p2p: 10 }[m.type] + (m.type === 'online' && (m.rival.headPts || 0) > (u.headPts || 0) ? 10 : 0);
+          coins = { easy: 10, normal: 20, hard: 35, online: 40, p2p: 0 }[m.type];
+          if (coins > 0 && !BattleAttempts.consume('headrewards')) { coins = 0; note = 'Ya cobraste las 2 recompensas de monedas de hoy (los puntos sí cuentan).'; }
+          u.headWins = (u.headWins || 0) + 1;
+        } else if (draw) pts = 3; else { u.headLosses = (u.headLosses || 0) + 1; if (m.type === 'online') pts = -8; }
+        u.headPts = Math.max(0, (u.headPts || 0) + pts); u.monedas = (u.monedas || 0) + coins; u.headFighterId = this._sel.id;
+        await Auth.updateUser(u); Online.syncProfile(u, true); App.refreshHeader?.(u);
+      } catch (_) { note = note || 'No se pudo guardar la recompensa en la nube (revisa tu conexión).'; }
+      const box = this._ov?.querySelector('#hc-rew');
+      if (box) box.innerHTML = `<div class="hc-chips"><span class="hc-chip ${pts < 0 ? 'neg' : 'pts'}">${pts >= 0 ? '+' : ''}${pts} PTS</span>${coins ? `<span class="hc-chip coin">+${coins} 🪙</span>` : ''}</div>`
+        + (p2p ? '<p class="hc-rew-sub">Duelo con amigo: solo suma puntos (sin monedas)</p>' : '');
+      const n = this._ov?.querySelector('#hc-rnote'); if (n && note) n.textContent = note;
+    }
+  },
+  // ---- revancha P2P (ambos deben aceptar)
+  _rmCheck() { if (this._rmMine && this._rmRemote) { this._rmMine = this._rmRemote = false; this._rematch(); } },
+  _rematch() {
+    this._stop(); this._started = false; this._myReady = false; this._remoteCard = null; this.remoteIn = null;
+    this.state = null; this.p1 = this.p2 = null; this._paused = false;
+    this._pick();
   },
 
   // ------------------------------------------------ dibujo

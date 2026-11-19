@@ -164,3 +164,19 @@ Lógica (gacha, Firebase, API ESPN, predicciones, álbum) sin tocar.
 
 ## Otros
 - `sw.js` v25; `pitch.css` (reloj del juego) y `prizes.css` (nuevo).
+
+---
+# Ronda 19
+
+## Head Cards online (P2P): recompensa y revancha
+- El resultado aparece al instante y la recompensa (chips grandes "+10 PTS" / "+40 🪙") se rellena en cuanto se guarda. Antes se esperaba a la red y el ganador podía no verla; el duelo P2P solo da puntos (sin monedas) y ahora lo dice.
+- **Revancha de a dos**: ya no cierra la sala. Se pide y se espera al rival; solo empieza cuando AMBOS aceptan. Si el rival sale en la pantalla de resultado, el botón queda "El rival salió" (sin victoria extra por abandono).
+
+## Wordle de fútbol (P2P) — `wordle.js`
+- Online → "Sala · Wordle de fútbol". Mismo jugador secreto para los dos; cada intento es una carta y se compara Equipo / País / Posición / Rareza / Rating (🟩 igual, 🟨 cerca, ▲▼). 8 intentos, 5 minutos, pistas a los 4 y 6 intentos. Gana el primero en acertar; si nadie acierta, empate. Revancha de a dos. Sin recompensas.
+
+## Sorteos con monedas — `raffles.js`
+- El admin los crea en su pestaña (premio: sobre de una rareza o tiradas, costo, hora). Anuncio ROJO en la cabecera con cuenta regresiva; al tocarlo, ventana con premio, hora, costo y botón de participar (descuenta las monedas).
+- El admin ve cuántos se anotaron (y sus correos), confirma y pulsa 🎲 Sortear: elige un inscrito al azar (crypto). Los inscritos ven al ganador; el ganador ve su victoria y abre el sobre tocándolo 6 veces (o reclama las tiradas). Los demás: "Lo siento, no ganaste".
+- **Hay que publicar `firestore.rules`** (colección nueva `raffles` y subcolección `entries`).
+- `sw.js` v26.

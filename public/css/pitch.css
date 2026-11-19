@@ -964,16 +964,13 @@ body.wh-open{overflow:hidden}
 /* Pestañas de navegación centradas (escritorio); si no caben, se alinean al inicio y hacen scroll */
 @media (min-width: 1024px) {
   .app-nav {
-    justify-content: flex-start !important; /* el centrado lo hacen los márgenes auto de ::before/::after */
+    justify-content: center !important;
     padding-inline: 1rem !important;   /* simétrico: ya no empuja el menú hacia la izquierda */
   }
   .nav-btn { flex: 0 0 auto; min-width: 84px; padding-left: 10px; padding-right: 10px; }
-  /* Centrado "seguro": dos pseudo-elementos vacíos con margen auto reparten el espacio
-     sobrante a ambos lados (no depende de qué botón sea el primero/último, así que
-     funciona aunque haya botones ocultos como "Admin"). Si no caben, hace scroll. */
-  .app-nav::before, .app-nav::after { content: ''; flex: 0 0 0; }
-  .app-nav::before { margin-left: auto; }
-  .app-nav::after  { margin-right: auto; }
+  /* Centrado "seguro": centra si caben, y si no caben hace scroll sin recortar el primero */
+  .app-nav > .nav-btn:first-child { margin-left: auto; }
+  .app-nav > .nav-btn:last-child  { margin-right: auto; }
 }
 
 /* ¿Quién es mi jugador? — reloj de 1 minuto por turno (Ronda 18) */
@@ -987,3 +984,16 @@ body.wh-open{overflow:hidden}
 .wh-warn{margin:0;padding:6px 10px;border-radius:10px;font-size:.78rem;background:rgba(255,90,90,.12);color:#ff9a9a}
 .wh-msg.t{opacity:.85;border-style:dashed}
 @keyframes whBlink{50%{opacity:.35}}
+
+/* Recompensa de Head Cards (resultado) */
+.hc-rew { margin: .3rem 0 .4rem; min-height: 2.4rem; }
+.hc-rew p { margin: 0; }
+.hc-rew-wait { opacity: .7; font-size: .9rem; }
+.hc-chips { display: flex; gap: .5rem; justify-content: center; flex-wrap: wrap; }
+.hc-chip { font-family: 'Bebas Neue', 'Barlow Condensed', sans-serif; font-size: 1.5rem; letter-spacing: .04em; padding: .1rem .8rem; border-radius: 999px; animation: hcPop .45s cubic-bezier(.2,1.6,.4,1) both; }
+.hc-chip.pts { background: rgba(74,168,255,.18); color: #7cc4ff; border: 1px solid #4aa8ff; }
+.hc-chip.coin { background: rgba(255,200,61,.16); color: #ffd24d; border: 1px solid #ffc83d; }
+.hc-chip.neg { background: rgba(255,77,109,.16); color: #ff8aa0; border: 1px solid #ff4d6d; }
+.hc-rew-sub { font-size: .74rem; opacity: .65; margin-top: .3rem !important; }
+.hc-result small { display: block; margin: .15rem 0; opacity: .8; }
+.hc-rbtns { margin-top: .4rem; }
