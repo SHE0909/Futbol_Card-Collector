@@ -9,7 +9,7 @@
 // El primero en adivinar gana. Hay 8 intentos y 5 minutos por partida; si nadie
 // acierta (o se acaba el tiempo) es empate. Pistas gratis: tras 4 intentos fallidos
 // se revela la inicial y tras 6 la cantidad de letras.
-// Sin recompensas (igual que Penales y ¿Quién es mi jugador?, para evitar farmeo entre amigos).
+// Recompensa: +10 pts al ganar, con el tope diario compartido entre todos los P2P (P2PRewards, en p2p.js).
 // Mensajes por P2P.send(): wd_ready, wd_start, wd_p, wd_win, wd_out, wd_to, wd_again.
 
 const FootWordle = {
@@ -68,7 +68,7 @@ const FootWordle = {
   },
   _begin(id) {
     const S = this.S; S.secret = id; S.phase = 'play'; S.guesses = []; S.q = ''; S.out = false; S.oppOut = false;
-    S.oppN = 0; S.oppBest = 0; S.result = null; S.again = false; S.oppAgain = false; S.winTs = 0;
+    S.oppN = 0; S.oppBest = 0; S.result = null; S.again = false; S.oppAgain = false; S.winTs = 0; S.rw = null;
     S.deadline = Date.now() + this.GAME_MS; this.render();
   },
 
@@ -137,6 +137,14 @@ const FootWordle = {
   _end(result) {
     const S = this.S; if (!S || S.phase === 'end') return;
     S.phase = 'end'; S.result = result; this.render();
+    // Se espera un instante: si los dos aciertan casi a la vez, el desempate puede cambiar el resultado.
+    if (result.kind === 'win') setTimeout(() => { if (this.alive && this.S === S && S.result?.kind === 'win') this._reward(S); }, 1500);
+  },
+  async _reward(S) {
+    if (S.rw && S.rw.done) return;
+    S.rw = { done: true, html: '<p class="wh-sub">⏳ Calculando tu recompensa…</p>' }; this.render();
+    try { S.rw.html = P2PRewards.html(await P2PRewards.award()); } catch (_) { S.rw.html = P2PRewards.errHtml(); }
+    if (this.alive && this.S === S && S.phase === 'end') this.render();
   },
   _again() {
     const S = this.S; if (S.phase !== 'end' || S.oppGone) return;
@@ -192,7 +200,7 @@ const FootWordle = {
     const rows = S.guesses.length ? `<details class="wh-board"><summary>Ver mis ${S.guesses.length} intentos</summary><div class="wd-rows">${S.guesses.map(g => this._rowHtml(g)).join('')}</div></details>` : '';
     const again = S.oppGone ? '<p class="wh-sub">Tu rival salió de la sala</p>'
       : `<button class="btn btn-primary" id="wd-again" ${S.again ? 'disabled' : ''}>${S.again ? 'Esperando al rival…' : '🔁 Revancha'}</button>${S.oppAgain && !S.again ? '<p class="wh-sub">🔁 Tu rival quiere la revancha</p>' : ''}`;
-    return `<div class="wh-end ${cls}"><h2>${title}</h2><p class="wh-sub">${this._esc(r.why || '')}</p>${reveal}${rows}<p class="wh-sub">Partida amistosa: sin recompensas</p><div class="wh-row" style="justify-content:center">${again}<button class="btn" id="wd-leave">Salir</button></div></div>`;
+    return `<div class="wh-end ${cls}"><h2>${title}</h2><p class="wh-sub">${this._esc(r.why || '')}</p>${reveal}${rows}<div class="wh-rew">${S.rw ? S.rw.html : r.kind === 'win' ? '<p class="wh-sub">⏳ Calculando tu recompensa…</p>' : `<p class="wh-sub">${P2PRewards.loserNote}</p>`}</div><div class="wh-row" style="justify-content:center">${again}<button class="btn" id="wd-leave">Salir</button></div></div>`;
   },
   render(keepFocus = false) {
     if (!this.ov || !this.S) return;

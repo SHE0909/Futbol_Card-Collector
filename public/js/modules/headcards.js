@@ -418,7 +418,7 @@ const HeadCards = {
     this._ov.querySelector('#hc-exit').onclick = () => this.close();
 
     // ---- recompensas (se guardan después de mostrar el resultado)
-    let coins = 0, pts = 0, note = '';
+    let coins = 0, pts = 0, note = '', saved = true, used = 0;
     if (m.type !== 'local') {
       try {
         const u = await Auth.currentUser();
@@ -426,14 +426,20 @@ const HeadCards = {
           pts = { easy: 5, normal: 12, hard: 20, online: 25, p2p: 10 }[m.type] + (m.type === 'online' && (m.rival.headPts || 0) > (u.headPts || 0) ? 10 : 0);
           coins = { easy: 10, normal: 20, hard: 35, online: 40, p2p: 0 }[m.type];
           if (coins > 0 && !BattleAttempts.consume('headrewards')) { coins = 0; note = 'Ya cobraste las 2 recompensas de monedas de hoy (los puntos sí cuentan).'; }
+          if (p2p) {
+            if (P2PRewards.left(u) > 0) u.p2pRw = { d: P2PRewards._day(), n: P2PRewards.used(u) + 1 };
+            else { pts = 0; note = `Llegaste al tope de ${P2PRewards.CAP} premios P2P de hoy (la victoria sí cuenta).`; }
+          }
           u.headWins = (u.headWins || 0) + 1;
         } else if (draw) pts = 3; else { u.headLosses = (u.headLosses || 0) + 1; if (m.type === 'online') pts = -8; }
         u.headPts = Math.max(0, (u.headPts || 0) + pts); u.monedas = (u.monedas || 0) + coins; u.headFighterId = this._sel.id;
+        used = P2PRewards.used(u);
         await Auth.updateUser(u); Online.syncProfile(u, true); App.refreshHeader?.(u);
-      } catch (_) { note = note || 'No se pudo guardar la recompensa en la nube (revisa tu conexión).'; }
+      } catch (_) { saved = false; pts = 0; coins = 0; note = ''; }
       const box = this._ov?.querySelector('#hc-rew');
-      if (box) box.innerHTML = `<div class="hc-chips"><span class="hc-chip ${pts < 0 ? 'neg' : 'pts'}">${pts >= 0 ? '+' : ''}${pts} PTS</span>${coins ? `<span class="hc-chip coin">+${coins} 🪙</span>` : ''}</div>`
-        + (p2p ? '<p class="hc-rew-sub">Duelo con amigo: solo suma puntos (sin monedas)</p>' : '');
+      if (box) box.innerHTML = !saved ? P2PRewards.errHtml()
+        : `<div class="hc-chips"><span class="hc-chip ${pts < 0 ? 'neg' : 'pts'}">${pts >= 0 ? '+' : ''}${pts} PTS</span>${coins ? `<span class="hc-chip coin">+${coins} 🪙</span>` : ''}</div>`
+          + (p2p ? `<p class="hc-rew-sub">Duelo con amigo: solo suma puntos (sin monedas) · Premios P2P de hoy: ${used}/${P2PRewards.CAP}</p>` : '');
       const n = this._ov?.querySelector('#hc-rnote'); if (n && note) n.textContent = note;
     }
   },

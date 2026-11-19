@@ -180,3 +180,28 @@ Lógica (gacha, Firebase, API ESPN, predicciones, álbum) sin tocar.
 - El admin ve cuántos se anotaron (y sus correos), confirma y pulsa 🎲 Sortear: elige un inscrito al azar (crypto). Los inscritos ven al ganador; el ganador ve su victoria y abre el sobre tocándolo 6 veces (o reclama las tiradas). Los demás: "Lo siento, no ganaste".
 - **Hay que publicar `firestore.rules`** (colección nueva `raffles` y subcolección `entries`).
 - `sw.js` v26.
+
+---
+# Ronda 19b
+
+## Menú superior centrado para todos
+- El centrado anterior dependía de que el último botón fuera visible; para quien no es admin el botón "Admin" está oculto y todo el menú se corría a la derecha. Ahora el centrado usa dos elementos vacíos a los lados (`.app-nav::before/::after` con `margin:auto`), que reparten el espacio sobrante igual con o sin botón Admin. Si las pestañas no caben (~1024 px) la barra empieza al inicio y hace scroll sin recortar la primera.
+- `sw.js` v27.
+
+---
+# Ronda 20
+
+## Recompensas en TODOS los juegos P2P (`P2PRewards` en `p2p.js`)
+- Antes solo Head Cards pagaba; Penales, ¿Quién es mi jugador? y Wordle no daban nada (y ¿Quién es mi jugador? ni lo avisaba). Ahora **el ganador de cualquier duelo P2P recibe +10 puntos** (ganar por abandono del rival también cuenta).
+- **Tope diario compartido: 5 premios al día entre todos los P2P** (incluido Head Cards P2P, que antes no tenía tope), para evitar el farmeo entre amigos. Pasado el tope la victoria cuenta pero no suma puntos y se avisa en pantalla. El contador se guarda en el documento del usuario (`users/{uid}.p2pRw = { d, n }`, día local), así no se reinicia al cambiar de dispositivo. No hace falta tocar `firestore.rules`.
+- Head Cards P2P sigue sin dar monedas; solo puntos. Los puntos van al ranking `headPts` (es el único campo de puntos).
+- Wordle espera 1,5 s antes de pagar: si los dos aciertan casi a la vez, el desempate puede convertir la victoria en derrota y entonces no se paga.
+- Cada partida se paga una sola vez.
+- El perdedor ve "Solo el ganador suma puntos (máx. 5 premios P2P al día)".
+
+## Arreglo: premio "falso" en Head Cards
+- Si no se podía guardar la recompensa (sin internet o rechazo de Firestore), el chip "+10 PTS" aparecía igual con una nota pequeña. Ahora, si falla el guardado, no se muestra ningún chip y sale "No se pudo guardar tu recompensa. Revisa tu conexión.".
+
+## Otros
+- `sw.js` v28.
+- Verificado con simulación (dos clientes con relevo simulado + jsdom): ganador anfitrión e invitado en Head Cards, tope 5/5 y reinicio al día siguiente, Penales (victoria, derrota, abandono), ¿Quién es mi jugador?, Wordle (incluido el desempate), y fallo de guardado. No probado con Firebase real.

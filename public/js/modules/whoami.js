@@ -188,6 +188,13 @@ const WhoAmI = {
     const S = this.S; S.phase = 'end'; S.result = { won, why, left };
     if (!left) this._send({ t: 'wh_reveal', secret: S.pick });
     this.render();
+    if (won) this._reward(S);
+  },
+  async _reward(S) {
+    if (S.rw) return;
+    S.rw = '<p class="wh-sub">⏳ Calculando tu recompensa…</p>'; this.render();
+    try { S.rw = P2PRewards.html(await P2PRewards.award()); } catch (_) { S.rw = P2PRewards.errHtml(); }
+    if (this.alive && this.S === S && S.phase === 'end') this.render();
   },
   _restart() { this.S = this._fresh(); this.render(); },
 
@@ -290,6 +297,7 @@ const WhoAmI = {
     return `<div class="wh-end ${r.won ? 'win' : 'lose'}"><h2>${r.won ? '🏆 ¡Ganaste!' : '💀 Perdiste'}</h2><p>${this._esc(r.why || '')}</p>
       <div class="wh-reveal"><div><small>Tu jugador</small>${this._face(mine, 'big')}<b>${this._esc(mine.name)}</b></div>
       <div><small>Su jugador</small>${opp ? this._face(opp, 'big') + `<b>${this._esc(opp.name)}</b>` : '<span class="wh-sub">…</span>'}</div></div>
+      <div class="wh-rew">${S.rw || (r.won ? '' : `<p class="wh-sub">${P2PRewards.loserNote}</p>`)}</div>
       <div class="wh-yn">${r.left ? '' : `<button class="btn btn-primary" id="wh-again" ${S.again ? 'disabled' : ''}>${S.again ? 'Esperando revancha…' : S.oppAgain ? 'Aceptar revancha' : 'Revancha'}</button>`}<button class="btn" id="wh-leave">Salir</button></div></div>`;
   },
   _bind() {

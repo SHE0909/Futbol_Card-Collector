@@ -964,13 +964,14 @@ body.wh-open{overflow:hidden}
 /* Pestañas de navegación centradas (escritorio); si no caben, se alinean al inicio y hacen scroll */
 @media (min-width: 1024px) {
   .app-nav {
-    justify-content: center !important;
-    padding-inline: 1rem !important;   /* simétrico: ya no empuja el menú hacia la izquierda */
+    justify-content: flex-start !important;   /* el centrado lo hacen los márgenes automáticos de abajo */
+    padding-inline: 1rem !important;
   }
   .nav-btn { flex: 0 0 auto; min-width: 84px; padding-left: 10px; padding-right: 10px; }
-  /* Centrado "seguro": centra si caben, y si no caben hace scroll sin recortar el primero */
-  .app-nav > .nav-btn:first-child { margin-left: auto; }
-  .app-nav > .nav-btn:last-child  { margin-right: auto; }
+  /* Centrado "seguro": dos elementos vacíos a los lados reparten el espacio sobrante a partes iguales.
+     Funciona aunque el último botón (Admin) esté oculto; si las pestañas no caben, no hay espacio
+     sobrante y la barra empieza al inicio y hace scroll sin recortar la primera. */
+  .app-nav::before, .app-nav::after { content: ''; margin: auto; }
 }
 
 /* ¿Quién es mi jugador? — reloj de 1 minuto por turno (Ronda 18) */
@@ -997,3 +998,9 @@ body.wh-open{overflow:hidden}
 .hc-rew-sub { font-size: .74rem; opacity: .65; margin-top: .3rem !important; }
 .hc-result small { display: block; margin: .15rem 0; opacity: .8; }
 .hc-rbtns { margin-top: .4rem; }
+
+/* Recompensas P2P (Ronda 20) */
+.hc-rew-sub { font-size: .82rem; opacity: .8; margin: .3rem 0 0; }
+.hc-rew-err { color: #ff9db0; opacity: 1; }
+.wh-rew { margin: .6rem 0; text-align: center; min-height: 1.4rem; }
+.wh-rew p { margin: .2rem 0; }

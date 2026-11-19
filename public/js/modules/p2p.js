@@ -139,3 +139,30 @@ const P2P = {
 
 // Cerrar la pestaña o salir de la página también avisa al rival.
 addEventListener('pagehide', () => { try { if (P2P.open) P2P.send({ __bye: 1 }, true); } catch (_) {} });
+
+// ---- Premio de victoria en juegos P2P (Head Cards, Penales, ¿Quién es mi jugador?, Wordle)
+// +10 puntos por victoria, con un tope diario COMPARTIDO entre todos los P2P para evitar farmeo
+// entre amigos. El contador vive en el documento del usuario (users/{uid}.p2pRw = { d, n }).
+const P2PRewards = {
+  PTS: 10, CAP: 5,
+  _day() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; },
+  used(u) { return u && u.p2pRw && u.p2pRw.d === this._day() ? (u.p2pRw.n | 0) : 0; },
+  left(u) { return Math.max(0, this.CAP - this.used(u)); },
+  async award() {
+    const u = await Auth.currentUser();
+    if (!u) throw new Error('sin sesión');
+    if (this.left(u) <= 0) return { pts: 0, capped: true, used: this.used(u) };
+    u.p2pRw = { d: this._day(), n: this.used(u) + 1 };
+    u.headPts = Math.max(0, (u.headPts || 0) + this.PTS);
+    await Auth.updateUser(u);
+    try { Online.syncProfile(u, true); App.refreshHeader?.(u); } catch (_) {}
+    return { pts: this.PTS, capped: false, used: u.p2pRw.n };
+  },
+  html(r) {
+    return r.capped
+      ? `<p class="hc-rew-sub">Llegaste al tope de ${this.CAP} premios P2P de hoy. ¡La victoria sí cuenta!</p>`
+      : `<div class="hc-chips"><span class="hc-chip pts">+${r.pts} PTS</span></div><p class="hc-rew-sub">Premios P2P de hoy: ${r.used}/${this.CAP}</p>`;
+  },
+  errHtml() { return '<p class="hc-rew-sub hc-rew-err">No se pudo guardar tu recompensa. Revisa tu conexión.</p>'; },
+  loserNote: 'Solo el ganador suma puntos (máx. 5 premios P2P al día)'
+};

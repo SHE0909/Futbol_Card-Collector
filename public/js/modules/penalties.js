@@ -79,11 +79,17 @@ const PenaltyGame = {
     if (this._done) return; this._done = true;
     this.alive = false; cancelAnimationFrame(this._raf);
     const w = forfeit || this.u > this.c, d = !forfeit && this.u === this.c;
-    this.ov.querySelector('.hc-stage').insertAdjacentHTML('beforeend', `<div class="hc-result" style="--c:${w ? '#3ddc84' : '#ff4d6d'}"><h2>${w ? '¡GANASTE LA TANDA!' : 'LA PERDISTE'}</h2>${forfeit ? '<small>El rival se desconectó: ganas por abandono</small>' : this.p2p ? '<small>Duelo P2P · sin recompensas</small>' : ''}<div class="hc-final">${this.u} - ${this.c}</div><button class="btn btn-primary" id="pg-ok">Continuar</button></div>`);
+    this.ov.querySelector('.hc-stage').insertAdjacentHTML('beforeend', `<div class="hc-result" style="--c:${w ? '#3ddc84' : '#ff4d6d'}"><h2>${w ? '¡GANASTE LA TANDA!' : 'LA PERDISTE'}</h2>${forfeit ? '<small>El rival se desconectó: ganas por abandono</small>' : ''}<div class="hc-final">${this.u} - ${this.c}</div>${this.p2p ? (w ? '<div class="hc-rew" id="pg-rew"><p class="hc-rew-wait">⏳ Calculando tu recompensa…</p></div>' : `<small>${P2PRewards.loserNote}</small>`) : ''}<button class="btn btn-primary" id="pg-ok">Continuar</button></div>`);
+    if (this.p2p && w) this._p2pReward();
     this.ov.querySelector('#pg-ok').onclick = () => {
       if (this.p2p) { this.close(true); if (typeof Online !== 'undefined') Online.open(); return; }
       this.close(true); Battle._endPenaltyBattle(this.u, this.c);
     };
+  },
+  async _p2pReward() {
+    let html;
+    try { html = P2PRewards.html(await P2PRewards.award()); } catch (_) { html = P2PRewards.errHtml(); }
+    const box = this.ov?.querySelector('#pg-rew'); if (box) box.innerHTML = html;
   },
   _reset() { Object.assign(this.ball, { x: this.SPOT.x, y: this.SPOT.y, s: 1 }); Object.assign(this.keeper, { x: 400, y: 215, rot: 0 }); this.cross = null; this.power = null; this.hit = null; },
 
