@@ -138,3 +138,10 @@ Lógica (gacha, Firebase, API ESPN, predicciones, álbum) sin tocar.
 - **Caras cortadas en ¿Quién es mi jugador?** El recorte de la figurita tenía un margen superior positivo: dejaba un hueco vacío arriba y solo mostraba el pelo. Ahora el círculo encuadra cabeza completa (pelo a barbilla). Misma corrección en la foto de "Adivina" (`.mg-visual.photo`), que cortaba el pelo.
 - `sw.js` sube a `wcc-ues-v22` para forzar la descarga de los archivos nuevos.
 - Verificado con simulación (jsdom + relevo WebSocket simulado): salida voluntaria y caída brusca disparan una sola vez el aviso; Head Cards, Penales y ¿Quién es mi jugador? dan la victoria al que se queda (perdiendo 0-2 / 1-3 / con 1 intento), sin duplicar resultados ni dar victoria si aún no empezó. El recorte de las caras se calculó sobre dos figuritas reales (Musiala, Yamal). No se probó en dos navegadores reales ni con WebRTC real.
+
+## Ronda 17
+- Head Cards: porterías el doble de altas (anti-camping).
+- Aviso de salida propio (sin confirm del navegador): 1 abandono/día solo advierte; el 2.º bloquea Head Cards 2 h. Mismo diálogo en ¿Quién es mi jugador?.
+- Título "Adivina por Emoji" -> "Adivina el Jugador".
+- Pestañas de navegación centradas en escritorio.
+- sw.js -> wcc-ues-v24.

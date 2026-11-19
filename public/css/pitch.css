@@ -960,3 +960,9 @@ body.wh-open{overflow:hidden}
 .hc-dlg-box p { margin:0 0 1.1rem; font-size:.92rem; line-height:1.45; opacity:.9; } .hc-dlg-box p small { display:block; margin-top:.4rem; opacity:.7; }
 .hc-dlg-btns { display:flex; flex-direction:column; gap:.5rem; } .hc-dlg-btns .btn { width:100%; padding:.7rem; }
 @keyframes hcFade { from { opacity:0; } }
+
+/* Pestañas de navegación centradas (escritorio); si no caben, se alinean al inicio y hacen scroll */
+@media (min-width: 1025px) {
+  .app-nav { justify-content: safe center; }
+  .nav-btn { flex: 0 0 auto; min-width: 84px; padding-left: 10px; padding-right: 10px; }
+}
