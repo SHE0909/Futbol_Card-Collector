@@ -160,11 +160,14 @@ const Prizes = {
           <div class="prize-kicker">${kicker}</div>
           <p class="prize-line">${line}</p>
           ${cardHtml}
-          ${note ? `<p class="prize-note">🏆 ${this._esc(note)}</p>` : ''}
+          ${note ? `<p class="prize-note"><svg class="prize-note-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 01-10 0zM7 6H4v1a3 3 0 003 3M17 6h3v1a3 3 0 01-3 3"/></svg>${this._esc(note)}</p>` : ''}
           <button class="btn btn-primary prize-ok" type="button">Continuar</button>
         </div>`;
       document.body.appendChild(ov);
       if (window.parseEmojis) try { parseEmojis(ov); } catch (_) {}
+      // Las cartas nacen con opacity:0 (la animación de giro del gacha les pone .card-flip-in);
+      // aquí nadie lo hacía y la carta del premio quedaba invisible.
+      ov.querySelectorAll('.figurita-card').forEach(c => setTimeout(() => c.classList.add('card-flip-in'), 350));
       const btn = ov.querySelector('.prize-ok');
       btn.focus();
       btn.onclick = () => { ov.classList.add('out'); setTimeout(() => { ov.remove(); resolve(); }, 250); };

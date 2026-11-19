@@ -18,27 +18,60 @@
 //      varias veces) o TIRADAS. El premio se entrega con una transacción atómica
 //      (raffles/{id}.claimed false -> true + se suma a la cuenta), así no se duplica.
 //
-// No hay servidor que sortee solo: el sorteo ocurre cuando el admin lo confirma.
+// No hay servidor que sortee solo: el sorteo ocurre cuando el admin lo confirma. Para que no se
+// le olvide, cuando llega la hora de cierre al admin le sale una ventana emergente (con la app
+// abierta) para sortear al ganador en un clic; si pulsa "Más tarde" vuelve a salir a los 3 min.
 
 const Raffles = {
   TAPS: 6,                                  // toques para abrir el sobre
   PACKS: {
-    common:    { label: 'Común',      color: '#9aa4b2', icon: '📦' },
-    rare:      { label: 'Raro',       color: '#4aa8ff', icon: '💎' },
-    epic:      { label: 'Épico',      color: '#b44fff', icon: '⚡' },
-    legendary: { label: 'Legendario', color: '#ffd700', icon: '✨' },
-    goat:      { label: 'GOAT',       color: '#ff2244', icon: '🐐' }
+    common:    { label: 'Común',      color: '#9aa4b2', icon: 'package' },
+    rare:      { label: 'Raro',       color: '#4aa8ff', icon: 'gem' },
+    epic:      { label: 'Épico',      color: '#b44fff', icon: 'bolt' },
+    legendary: { label: 'Legendario', color: '#ffd700', icon: 'sparkle' },
+    goat:      { label: 'GOAT',       color: '#ff2244', icon: 'crown' }
+  },
+  // Icono de la carta que sale según su rareza (para la pantalla de felicitación).
+  CARD_ICON: { common: 'ball', rare: 'gem', epic: 'bolt', legendary: 'sparkle', goat: 'crown' },
+  // Iconos SVG (viewBox 24, trazo). Esta parte de la app no usa emojis.
+  ICONS: {
+    trophy: '<path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 01-10 0zM7 6H4v1a3 3 0 003 3M17 6h3v1a3 3 0 01-3 3"/>',
+    package: '<path d="M21 8l-9-5-9 5v8l9 5 9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/>',
+    gem: '<path d="M6 3h12l4 6-10 12L2 9z"/><path d="M2 9h20M9 3l3 6 3-6M12 21L9 9M12 21l3-12"/>',
+    bolt: '<path d="M13 2L4 14h7l-1 8 9-12h-7z"/>',
+    sparkle: '<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/><path d="M19 3v4M17 5h4M5 17v4M3 19h4"/>',
+    crown: '<path d="M3 8l4 4 5-7 5 7 4-4-2 11H5z"/>',
+    ball: '<circle cx="12" cy="12" r="10"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/><path d="M2 12h20"/>',
+    ticket: '<path d="M3 9V6h18v3a3 3 0 000 6v3H3v-3a3 3 0 000-6z"/><path d="M14 6v12" stroke-dasharray="2 2"/>',
+    gift: '<polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 010-5C11 2 12 7 12 7zM12 7h4.5a2.5 2.5 0 000-5C13 2 12 7 12 7z"/>',
+    dice: '<rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1" fill="currentColor"/><circle cx="15.5" cy="8.5" r="1" fill="currentColor"/><circle cx="12" cy="12" r="1" fill="currentColor"/><circle cx="8.5" cy="15.5" r="1" fill="currentColor"/><circle cx="15.5" cy="15.5" r="1" fill="currentColor"/>',
+    coin: '<circle cx="12" cy="12" r="9"/><path d="M12 7v10M9.5 9.5h4a1.8 1.8 0 010 3.6h-3a1.8 1.8 0 000 3.6h4"/>',
+    timer: '<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 1.5M9 2h6"/>',
+    clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+    users: '<path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/>',
+    check: '<path d="M20 6L9 17l-5-5"/>',
+    x: '<path d="M18 6L6 18M6 6l12 12"/>',
+    frown: '<circle cx="12" cy="12" r="10"/><path d="M16 16s-1.5-2-4-2-4 2-4 2M9 9h.01M15 9h.01"/>',
+    alert: '<path d="M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>',
+    bell: '<path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 01-3.4 0"/>'
+  },
+  ico(name, color) {
+    return `<svg class="rf-ic" viewBox="0 0 24 24" aria-hidden="true"${color ? ` style="color:${color}"` : ''}>${this.ICONS[name] || ''}</svg>`;
+  },
+  prizeIcon(p, color) {
+    return p?.type === 'tiradas' ? this.ico('ticket', color) : this.ico((this.PACKS[p?.rarity] || this.PACKS.common).icon, color);
   },
   open: [], _joined: {}, _unsubs: [], _started: false, _timer: null,
   _queue: [], _busy: false, _shown: new Set(), _modal: null,
+  _adminOv: null, _adminSnooze: {},
 
   _esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); },
   _seenKey() { return 'wcc_raffle_seen_' + (fbAuth.currentUser?.uid || ''); },
   _seen() { try { return new Set(JSON.parse(localStorage.getItem(this._seenKey()) || '[]')); } catch (_) { return new Set(); } },
   _markSeen(id) { try { const s = this._seen(); s.add(id); localStorage.setItem(this._seenKey(), JSON.stringify([...s].slice(-60))); } catch (_) {} },
   prizeLabel(p) {
-    if (p?.type === 'tiradas') return `🎟️ ${Number(p.amount)} tiradas`;
-    const k = this.PACKS[p?.rarity] || this.PACKS.common; return `${k.icon} Sobre ${k.label}`;
+    if (p?.type === 'tiradas') return `${Number(p.amount)} tiradas`;
+    const k = this.PACKS[p?.rarity] || this.PACKS.common; return `Sobre ${k.label}`;
   },
   _fmt(ms) {
     const t = Math.max(0, Math.ceil(ms / 1000)), h = Math.floor(t / 3600), m = Math.floor(t % 3600 / 60), s = t % 60;
@@ -79,6 +112,7 @@ const Raffles = {
     this._tick();
   },
   _tick() {
+    this._adminWatch();
     const b = document.getElementById('hdr-raffle'); if (!b || !this.open.length) return;
     const r = this.open[0], left = r.endsAtMs - Date.now(), t = b.querySelector('.hr-time');
     if (t) t.textContent = left > 0 ? this._fmt(left) : 'SORTEANDO…';
@@ -110,24 +144,24 @@ const Raffles = {
     const cards = this.open.map(r => {
       const left = r.endsAtMs - Date.now(), closed = left <= 0, joined = this._joined[r.id], pk = this.PACKS[r.prize?.rarity];
       const color = r.prize?.type === 'pack' ? (pk?.color || '#fff') : '#2fd6ff';
-      const btn = joined ? '<button class="btn rf-btn" disabled>✅ Ya estás participando</button>'
+      const btn = joined ? `<button class="btn rf-btn" disabled>${this.ico('check')} Ya estás participando</button>`
         : closed ? '<button class="btn rf-btn" disabled>Inscripciones cerradas</button>'
-        : `<button class="btn btn-primary rf-btn" data-join="${r.id}">Participar · ${Number(r.cost) > 0 ? `−${Number(r.cost)} 🪙` : 'Gratis'}</button>`;
+        : `<button class="btn btn-primary rf-btn" data-join="${r.id}">Participar · ${Number(r.cost) > 0 ? `−${Number(r.cost)} ${this.ico('coin')}` : 'Gratis'}</button>`;
       return `<div class="rf-card" style="--rc:${color}">
-        <div class="rf-prize"><span class="rf-ico">${r.prize?.type === 'tiradas' ? '🎟️' : (pk?.icon || '📦')}</span><div><small>PREMIO</small><b>${this._esc(r.prize?.type === 'tiradas' ? Number(r.prize.amount) + ' tiradas' : 'Sobre ' + (pk?.label || ''))}</b></div></div>
+        <div class="rf-prize"><span class="rf-ico">${this.prizeIcon(r.prize)}</span><div><small>PREMIO</small><b>${this._esc(r.prize?.type === 'tiradas' ? Number(r.prize.amount) + ' tiradas' : 'Sobre ' + (pk?.label || ''))}</b></div></div>
         ${r.title ? `<p class="rf-title">${this._esc(r.title)}</p>` : ''}
         <ul class="rf-info">
-          <li><span>⏱️ Termina en</span><b data-end="${r.endsAtMs}">${closed ? 'Sorteando…' : this._fmt(left)}</b></li>
-          <li><span>🕒 Hora del sorteo</span><b>${this._hhmm(r.endsAtMs)}</b></li>
-          <li><span>🪙 Cuesta participar</span><b>${Number(r.cost) > 0 ? Number(r.cost) + ' monedas' : 'Gratis'}</b></li>
+          <li><span>${this.ico('timer')} Termina en</span><b data-end="${r.endsAtMs}">${closed ? 'Sorteando…' : this._fmt(left)}</b></li>
+          <li><span>${this.ico('clock')} Hora del sorteo</span><b>${this._hhmm(r.endsAtMs)}</b></li>
+          <li><span>${this.ico('coin')} Cuesta participar</span><b>${Number(r.cost) > 0 ? Number(r.cost) + ' monedas' : 'Gratis'}</b></li>
         </ul>
         ${btn}
         <p class="rf-note">El ganador se elige al azar entre todos los inscritos y se anuncia aquí mismo.</p>
       </div>`;
     }).join('');
     ov.innerHTML = `<div class="rf-box" role="dialog" aria-modal="true">
-      <button class="rf-x" data-close aria-label="Cerrar">✕</button>
-      <h3>🎰 Sorteo${this.open.length > 1 ? 's' : ''} en curso</h3>
+      <button class="rf-x" data-close aria-label="Cerrar">${this.ico('x')}</button>
+      <h3>${this.ico('dice')} Sorteo${this.open.length > 1 ? 's' : ''} en curso</h3>
       ${cards || '<p class="rf-empty">No hay sorteos activos ahora mismo.<br>¡Vuelve pronto!</p>'}
     </div>`;
     ov.querySelectorAll('[data-join]').forEach(b => b.onclick = () => this.join(b.dataset.join, b));
@@ -151,7 +185,7 @@ const Raffles = {
           if (cost > 0) tx.update(userRef, { monedas: (u.monedas || 0) - cost });
         });
         this._joined[id] = true;
-        Toast.success('✅ ¡Estás participando! Mucha suerte 🍀');
+        Toast.success('¡Estás participando! Mucha suerte');
         if (typeof App !== 'undefined') App.refreshHeader().catch(() => {});
         if (typeof DB !== 'undefined' && DB.logActivity) DB.logActivity(fbUser.email, 'raffle_join', id);
       } catch (e) {
@@ -162,7 +196,7 @@ const Raffles = {
       this._renderModal();
     };
     if (cost > 0) {
-      HeadCards._dialog({ icon: '🎰', title: '¿Participar en el sorteo?', text: `Se descontarán <b>${cost} 🪙</b> de tus monedas y no se devuelven. Premio: <b>${this._esc(this.prizeLabel(r.prize))}</b>.`, cancel: 'Cancelar', ok: 'Participar', onOk: go });
+      HeadCards._dialog({ icon: this.ico('dice'), title: '¿Participar en el sorteo?', text: `Se descontarán <b>${cost} monedas</b> de tu saldo y no se devuelven. Premio: <b>${this._esc(this.prizeLabel(r.prize))}</b>.`, cancel: 'Cancelar', ok: 'Participar', onOk: go });
     } else go();
   },
 
@@ -190,14 +224,14 @@ const Raffles = {
       ov.className = 'rf-ov rf-result' + (win ? ' win' : ''); ov.style.setProperty('--rc', color);
       const conf = win ? Array.from({ length: 40 }, () => `<i style="left:${(Math.random() * 100).toFixed(1)}%;animation-delay:${(Math.random() * 1.2).toFixed(2)}s;animation-duration:${(1.8 + Math.random() * 1.6).toFixed(2)}s"></i>`).join('') : '';
       const winnerLine = r.winnerName
-        ? `<div class="rf-winner"><small>🏆 GANADOR DEL SORTEO</small><b>${this._esc(r.winnerName)}${win ? ' (¡tú!)' : ''}</b></div>`
+        ? `<div class="rf-winner"><small>${this.ico('trophy')} GANADOR DEL SORTEO</small><b>${this._esc(r.winnerName)}${win ? ' (¡tú!)' : ''}</b></div>`
         : '<div class="rf-winner"><small>Sorteo cerrado</small><b>Sin inscritos</b></div>';
       ov.innerHTML = `<div class="rf-conf" aria-hidden="true">${conf}</div><div class="rf-box rf-rbox" role="dialog" aria-modal="true">
-        <div class="rf-bigico">${win ? '🏆' : '😔'}</div>
+        <div class="rf-bigico">${win ? this.ico('trophy', '#ffc83d') : this.ico('frown')}</div>
         <h2>${win ? '¡GANASTE EL SORTEO!' : 'Lo siento, no ganaste'}</h2>
         ${winnerLine}
         <p class="rf-sub">${win ? `Tu premio: <b>${this._esc(this.prizeLabel(r.prize))}</b>` : `Premio sorteado: <b>${this._esc(this.prizeLabel(r.prize))}</b><br>¡Inténtalo la próxima vez!`}</p>
-        <button class="btn btn-primary rf-go" type="button">${win ? (r.prize?.type === 'pack' ? '🎁 Abrir mi sobre' : '🎟️ Reclamar mis tiradas') : 'Cerrar'}</button>
+        <button class="btn btn-primary rf-go" type="button">${win ? (r.prize?.type === 'pack' ? this.ico('gift') + ' Abrir mi sobre' : this.ico('ticket') + ' Reclamar mis tiradas') : 'Cerrar'}</button>
       </div>`;
       document.body.appendChild(ov);
       const done = () => { ov.remove(); resolve(); };
@@ -205,7 +239,7 @@ const Raffles = {
         if (!win) { this._markSeen(r.id); return done(); }
         ov.querySelector('.rf-go').disabled = true;
         if (r.prize?.type === 'pack') { ov.remove(); await this._openPack(r); resolve(); }
-        else { const ok = await this._claim(r); if (ok) { this._markSeen(r.id); } done(); if (ok) Prizes.showReveal({ color: '#2fd6ff', icon: '🎟️', kicker: '¡FELICIDADES!', line: `Recibiste <b>${Number(r.prize.amount)}</b> tiradas`, note: 'Ganador del sorteo' }); }
+        else { const ok = await this._claim(r); if (ok) { this._markSeen(r.id); } done(); if (ok) Prizes.showReveal({ color: '#2fd6ff', icon: this.ico('ticket'), kicker: '¡FELICIDADES!', line: `Recibiste <b>${Number(r.prize.amount)}</b> tiradas`, note: 'Ganador del sorteo' }); }
       };
     });
   },
@@ -219,7 +253,7 @@ const Raffles = {
       ov.innerHTML = `<div class="rf-packwrap">
         <p class="rf-packhint" id="rf-hint">¡Toca el sobre para abrirlo!</p>
         <button class="rf-pack" id="rf-pack" type="button" aria-label="Abrir sobre">
-          <span class="rf-pack-foil"></span><span class="rf-pack-ico">${pk.icon}</span><b>SOBRE</b><em>${pk.label.toUpperCase()}</em>
+          <span class="rf-pack-foil"></span><span class="rf-pack-ico">${this.ico(pk.icon)}</span><b>SOBRE</b><em>${pk.label.toUpperCase()}</em>
           <i class="rf-crack c1"></i><i class="rf-crack c2"></i><i class="rf-crack c3"></i>
         </button>
         <div class="rf-ptrack"><u id="rf-pbar"></u></div>
@@ -244,7 +278,7 @@ const Raffles = {
           if (out) {
             this._markSeen(r.id);
             const t = Prizes.TIERS[out.card.rareza] || Prizes.TIERS.common;
-            await Prizes.showReveal({ color: t.color, icon: t.icon, kicker: t.kicker,
+            await Prizes.showReveal({ color: t.color, icon: this.ico(this.CARD_ICON[out.card.rareza] || 'ball', out.card.rareza === 'goat' ? '#ffc83d' : ''), kicker: t.kicker,
               line: t.line(this._esc(out.card.name)) + (out.isDuplicate ? ' <small>(ya la tenías: suma un duplicado)</small>' : ''),
               note: 'Ganador del sorteo', card: out.card, isDuplicate: out.isDuplicate, epic: ['legendary', 'goat'].includes(out.card.rareza) });
           } else { this._shown.delete(r.id); }
@@ -286,10 +320,68 @@ const Raffles = {
     return out;
   },
 
+  // ------------------------------------------------------------ admin: aviso al terminar
+  _isAdmin() { return typeof Admin !== 'undefined' && Admin.isAdmin(); },
+  // Cada segundo (desde _tick): si hay un sorteo cuya hora de cierre ya pasó y sigue sin sortear,
+  // al admin le sale la ventana. "Más tarde" la pospone 3 minutos; al recargar vuelve a salir.
+  _adminWatch() {
+    if (this._adminOv || !this.open.length || !this._isAdmin()) return;
+    const now = Date.now();
+    const r = this.open.find(x => x.endsAtMs <= now && (this._adminSnooze[x.id] || 0) <= now);
+    if (r) this._adminPrompt(r);
+  },
+  async _adminPrompt(r) {
+    const ov = document.createElement('div'); ov.className = 'rf-ov rf-admin'; ov.style.setProperty('--rc', '#ffc83d');
+    this._adminOv = ov; document.body.appendChild(ov);
+    const close = ms => { if (ms) this._adminSnooze[r.id] = Date.now() + ms; ov.remove(); this._adminOv = null; };
+    const what = `${this._esc(this.prizeLabel(r.prize))}${r.title ? ' · ' + this._esc(r.title) : ''}`;
+    const frame = inner => { ov.innerHTML = `<div class="rf-box rf-rbox rf-abox" role="alertdialog" aria-modal="true">${inner}</div>`; };
+    let count = null;
+    const ask = () => {
+      const none = count === 0;
+      frame(`<div class="rf-bigico rf-ring">${this.ico('bell', '#ffc83d')}</div>
+        <h2>¡Terminó el torneo!</h2>
+        <p class="rf-sub">Ya pasó la hora de cierre (<b>${this._hhmm(r.endsAtMs)}</b>) del sorteo <b>${what}</b>.<br>${none ? 'Nadie se inscribió, así que no hay a quién sortear.' : 'Sortea ahora al ganador para que no se te pase.'}</p>
+        <div class="rf-winner"><small>${this.ico('users')} INSCRITOS</small><b>${count == null ? '…' : count}</b></div>
+        <button class="btn btn-primary rf-go" id="rf-a-go" type="button" ${count == null ? 'disabled' : ''}>${none ? this.ico('x') + ' Cerrar sorteo sin ganador' : this.ico('dice') + ' Sortear ganador'}</button>
+        <button class="btn rf-later" id="rf-a-later" type="button">Más tarde</button>`);
+      ov.querySelector('#rf-a-later').onclick = () => close(3 * 60 * 1000);
+      ov.querySelector('#rf-a-go').onclick = () => go();
+    };
+    const go = async () => {
+      const b = ov.querySelector('#rf-a-go'); if (b) { b.disabled = true; b.textContent = 'Sorteando…'; }
+      try {
+        const res = await this.draw(r.id);
+        if (typeof AdminPanel !== 'undefined' && document.getElementById('adm-rf-list')) AdminPanel.loadRaffles();
+        const w = res.winner;
+        const conf = w ? Array.from({ length: 40 }, () => `<i style="left:${(Math.random() * 100).toFixed(1)}%;animation-delay:${(Math.random() * 1.2).toFixed(2)}s;animation-duration:${(1.8 + Math.random() * 1.6).toFixed(2)}s"></i>`).join('') : '';
+        ov.insertAdjacentHTML('afterbegin', `<div class="rf-conf" aria-hidden="true">${conf}</div>`);
+        frame(w
+          ? `<div class="rf-bigico">${this.ico('trophy', '#ffc83d')}</div><h2>¡Tenemos ganador!</h2>
+             <div class="rf-winner"><small>${this.ico('trophy')} GANADOR DEL SORTEO</small><b>${this._esc(w.name || 'Jugador')}</b><span class="rf-mail">${this._esc(w.email || '')}</span></div>
+             <p class="rf-sub">${res.count} inscrito${res.count === 1 ? '' : 's'} · Premio: <b>${what}</b><br>El jugador lo verá al abrir la app y podrá reclamarlo.</p>
+             <button class="btn btn-primary rf-go" id="rf-a-ok" type="button">Listo</button>`
+          : `<div class="rf-bigico">${this.ico('check')}</div><h2>Sorteo cerrado</h2><p class="rf-sub">Se cerró sin ganador porque nadie se inscribió.</p>
+             <button class="btn btn-primary rf-go" id="rf-a-ok" type="button">Listo</button>`);
+        ov.querySelector('#rf-a-ok').onclick = () => close();
+      } catch (e) {
+        console.error('[Raffles] sortear', e);
+        if (e.message === 'already-done') { Toast.warn('Este sorteo ya se había sorteado'); return close(); }
+        Toast.error('No se pudo sortear. Intenta de nuevo');
+        ask();
+      }
+    };
+    ask();
+    try { const s = await fbDB.collection('raffles').doc(r.id).collection('entries').get(); count = s.size; } catch (_) { count = null; }
+    if (this._adminOv === ov && ov.querySelector('#rf-a-go') && !ov.querySelector('#rf-a-ok')) ask();
+  },
+
   // ------------------------------------------------------------ admin: sortear
   // Elige un inscrito al azar (crypto) y cierra el sorteo. Solo el admin puede escribir (reglas).
   async draw(id) {
     const raffleRef = fbDB.collection('raffles').doc(id);
+    const cur = await raffleRef.get();
+    if (!cur.exists || cur.data().status !== 'open') throw new Error('already-done');   // ya se sorteó (otra pestaña / ventana)
     const snap = await raffleRef.collection('entries').get();
     const entries = snap.docs.map(d => d.data());
     const done = { status: 'done', doneAt: new Date().toISOString(), doneAtMs: Date.now(), entriesCount: entries.length, claimed: false };

@@ -241,6 +241,8 @@ const App = {
     this._setupAdminUI();
     try { Prizes.init(); } catch (e) { console.warn('Prizes.init falló', e); }
     try { Raffles.init(); } catch (e) { console.warn('Raffles.init falló', e); }
+    try { BattleAttempts.setUser(user.email || ''); } catch (e) { console.warn('BattleAttempts.setUser falló', e); }   // intentos extra del admin
+    this._syncDirectory(user);
     // Rendimiento: la UI queda interactiva primero; lo pesado corre en segundo plano.
     this._bindNavEvents();
     this._bindGlobalEvents();
@@ -304,6 +306,21 @@ const App = {
     const u = user || await Auth.currentUser();
     if (!u) return;
     this.refreshHeader(u);
+  },
+
+  // Registra mi correo en directory/{uid} para que el admin pueda verlo en su panel (intentos extra).
+  // Solo el admin puede leer esa colección. Máximo una escritura cada 6 h por dispositivo.
+  _syncDirectory(user) {
+    try {
+      const fbUser = fbAuth.currentUser; if (!fbUser?.email) return;
+      const key = 'wcc_dir_sync_' + fbUser.uid;
+      let last = 0; try { last = Number(localStorage.getItem(key) || 0); } catch (_) {}
+      if (Date.now() - last < 6 * 3600 * 1000) return;
+      fbDB.collection('directory').doc(fbUser.uid).set({
+        uid: fbUser.uid, email: fbUser.email.toLowerCase(), name: String(user?.name || '').slice(0, 60), lastSeen: new Date().toISOString()
+      }, { merge: true }).then(() => { try { localStorage.setItem(key, String(Date.now())); } catch (_) {} })
+        .catch(e => console.warn('[Directory] no se pudo registrar', e));
+    } catch (_) {}
   },
 
   // Muestra la pestaña "Admin" solo a la cuenta admin (la seguridad real está en firestore.rules).

@@ -127,6 +127,28 @@ service cloud.firestore {
       }
     }
 
+    // ---- INTENTOS EXTRA (torneo en persona) ----
+    // attemptLimits/{correo en minúsculas}: { daily } = intentos por modo y día para ese correo.
+    // Solo el admin los crea/edita/borra; cada jugador solo lee el suyo (el id es su correo).
+    match /attemptLimits/{email} {
+      allow get: if request.auth != null
+        && (request.auth.uid == 'EDh7heVm8xd1wUWuIXjwnH6yKe43' || email == request.auth.token.email.lower());
+      allow list: if request.auth != null && request.auth.uid == 'EDh7heVm8xd1wUWuIXjwnH6yKe43';
+      allow create, update, delete: if request.auth != null && request.auth.uid == 'EDh7heVm8xd1wUWuIXjwnH6yKe43'
+        && (request.method == 'delete' || (request.resource.data.daily is number && request.resource.data.daily >= 1 && request.resource.data.daily <= 999));
+    }
+
+    // Directorio de correos: cada jugador registra el suyo al entrar; SOLO el admin puede leerlo
+    // (así ve todos los correos desde su panel). Nadie lo borra.
+    match /directory/{uid} {
+      allow read: if request.auth != null && request.auth.uid == 'EDh7heVm8xd1wUWuIXjwnH6yKe43';
+      allow create, update: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.uid == uid
+        && request.resource.data.email == request.auth.token.email.lower()
+        && request.resource.data.name is string && request.resource.data.name.size() < 61;
+      allow delete: if false;
+    }
+
     // Salas P2P (solo intercambio de oferta/respuesta WebRTC).
     match /rooms/{code} {
       allow read, create, update, delete: if request.auth != null;

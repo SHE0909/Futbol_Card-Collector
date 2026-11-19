@@ -1,7 +1,51 @@
 const BattleAttempts = {
-  MAX_DAILY: 2,
+  MAX_DAILY: 2,                 // límite normal por modo y día
+  MAX_CAP: 999,                 // tope de los intentos extra que da el admin ("sin límite")
   LS_KEY_PREFIX: 'wcc_battle_attempts',
-  _email: '',   
+  LS_LIMIT_PREFIX: 'wcc_attempt_limit',
+  MODES: ['classic','penalties','quiz','guess','connect'],
+  _email: '',
+  _extra: 0,                    // límite diario extra concedido por el admin a este correo (0 = normal)
+  _unsub: null, _listenEmail: '',
+
+  // Límite diario de una categoría. El extra del admin aplica a los modos de juego; el tope de
+  // recompensas de monedas de Head Cards ('headrewards') es de economía y no cambia.
+  max(category) {
+    if (category === 'headrewards') return this.MAX_DAILY;
+    return Math.max(this.MAX_DAILY, this._extra || 0);
+  },
+
+  _limKey() { return `${this.LS_LIMIT_PREFIX}_${this._email}`; },
+  _loadExtra() {
+    try { const n = Math.floor(Number(localStorage.getItem(this._limKey()))); return n > this.MAX_DAILY ? Math.min(n, this.MAX_CAP) : 0; }
+    catch (_) { return 0; }
+  },
+
+  // Escucha en vivo attemptLimits/{mi correo} (lo escribe solo el admin, ver admin-panel.js).
+  listen() {
+    const em = (typeof fbAuth !== 'undefined' && fbAuth.currentUser?.email || '').toLowerCase();
+    if (!em || this._listenEmail === em) return;
+    try { this._unsub?.(); } catch (_) {}
+    this._listenEmail = em;
+    try {
+      this._unsub = fbDB.collection('attemptLimits').doc(em).onSnapshot(snap => {
+        const n = snap.exists ? Math.floor(Number(snap.data().daily) || 0) : 0;
+        this._extra = n > this.MAX_DAILY ? Math.min(n, this.MAX_CAP) : 0;
+        try { localStorage.setItem(this._limKey(), String(this._extra)); } catch (_) {}
+        this.repaint();
+      }, e => console.warn('[BattleAttempts] límite extra', e));
+    } catch (e) { console.warn('[BattleAttempts] listen falló', e); }
+  },
+
+  // Actualiza los contadores de las tarjetas de modo si la pestaña está abierta.
+  repaint() {
+    this.MODES.forEach(cat => {
+      const card = document.getElementById('bmode-' + cat); if (!card) return;
+      const rem = this.remaining(cat);
+      card.classList.toggle('bmode-exhausted', rem === 0);
+      const el = card.querySelector('.bmode-attempts'); if (el) el.textContent = `Intentos hoy: ${rem}/${this.max(cat)}`;
+    });
+  },
 
   _todayStr() {
     const d = new Date();
@@ -16,6 +60,8 @@ const BattleAttempts = {
   
   setUser(email) {
     this._email = email || '';
+    this._extra = this._loadExtra();
+    this.listen();
   },
 
   _load() {
@@ -35,15 +81,15 @@ const BattleAttempts = {
   
   remaining(category) {
     const data = this._load();
-    if (!data) return this.MAX_DAILY;
-    return Math.max(0, this.MAX_DAILY - (data.counts[category] || 0));
+    if (!data) return this.max(category);
+    return Math.max(0, this.max(category) - (data.counts[category] || 0));
   },
 
   
   consume(category) {
     let data = this._load() || { date: this._todayStr(), counts: {} };
     const used = data.counts[category] || 0;
-    if (used >= this.MAX_DAILY) return false;
+    if (used >= this.max(category)) return false;
     data.counts[category] = used + 1;
     this._save(data);
     return true;
@@ -51,10 +97,10 @@ const BattleAttempts = {
 
   
   summaryHTML() {
-    return ['classic','penalties','quiz','guess','connect'].map(cat => {
+    return this.MODES.map(cat => {
       const rem = this.remaining(cat);
       const label = { classic:'Clásica', penalties:'Penales', quiz:'Quiz', guess:'Adivina', connect:'Conecta', rival:'Rivales' }[cat];
-      return `<span class="battle-attempts-badge ${rem === 0 ? 'exhausted' : ''}">${label}: ${rem}/${this.MAX_DAILY}</span>`;
+      return `<span class="battle-attempts-badge ${rem === 0 ? 'exhausted' : ''}">${label}: ${rem}/${this.max(cat)}</span>`;
     }).join('');
   }
 };
@@ -196,35 +242,35 @@ const Battle = {
           <div class="bmode-title">Batalla Clásica</div>
           <div class="bmode-desc">Compara ratings con factor suerte. Rápido y emocionante.</div>
           <div class="bmode-reward">+1 tirada al ganar</div>
-          <div class="bmode-attempts">Intentos hoy: ${BattleAttempts.remaining('classic')}/${BattleAttempts.MAX_DAILY}</div>
+          <div class="bmode-attempts">Intentos hoy: ${BattleAttempts.remaining('classic')}/${BattleAttempts.max('classic')}</div>
         </div>
         <div class="battle-mode-card ${BattleAttempts.remaining('penalties') === 0 ? 'bmode-exhausted' : ''}" id="bmode-penalties">
           <div class="bmode-icon">🥅</div>
           <div class="bmode-title">Tanda de Penales</div>
           <div class="bmode-desc">3 penales cada uno. Minijuego de timing.</div>
           <div class="bmode-reward">+2 tiradas al ganar</div>
-          <div class="bmode-attempts">Intentos hoy: ${BattleAttempts.remaining('penalties')}/${BattleAttempts.MAX_DAILY}</div>
+          <div class="bmode-attempts">Intentos hoy: ${BattleAttempts.remaining('penalties')}/${BattleAttempts.max('penalties')}</div>
         </div>
         <div class="battle-mode-card ${BattleAttempts.remaining('quiz') === 0 ? 'bmode-exhausted' : ''}" id="bmode-quiz">
           <div class="bmode-icon">🧠</div>
           <div class="bmode-title">Quiz de Fútbol</div>
           <div class="bmode-desc">5 preguntas sobre La Liga, Premier League y Champions. Cada acierto suma puntos.</div>
           <div class="bmode-reward">+2 tiradas + monedas</div>
-          <div class="bmode-attempts">Intentos hoy: ${BattleAttempts.remaining('quiz')}/${BattleAttempts.MAX_DAILY}</div>
+          <div class="bmode-attempts">Intentos hoy: ${BattleAttempts.remaining('quiz')}/${BattleAttempts.max('quiz')}</div>
         </div>
         <div class="battle-mode-card ${BattleAttempts.remaining('guess') === 0 ? 'bmode-exhausted' : ''}" id="bmode-guess">
           <div class="bmode-icon">🔮</div>
           <div class="bmode-title">Adivina el Jugador</div>
           <div class="bmode-desc">Mira el emoji característico e identifica al jugador entre 4 opciones. ¡Sin fallar!</div>
           <div class="bmode-reward">+1 tirada por acierto</div>
-          <div class="bmode-attempts">Intentos hoy: ${BattleAttempts.remaining('guess')}/${BattleAttempts.MAX_DAILY}</div>
+          <div class="bmode-attempts">Intentos hoy: ${BattleAttempts.remaining('guess')}/${BattleAttempts.max('guess')}</div>
         </div>
         <div class="battle-mode-card ${BattleAttempts.remaining('connect') === 0 ? 'bmode-exhausted' : ''}" id="bmode-connect">
           <div class="bmode-icon">🔗</div>
           <div class="bmode-title">Conecta Jugador</div>
           <div class="bmode-desc">Une cada jugador con su selección. ¡Un fallo y se acaba!</div>
           <div class="bmode-reward">+2 tiradas si completas</div>
-          <div class="bmode-attempts">Intentos hoy: ${BattleAttempts.remaining('connect')}/${BattleAttempts.MAX_DAILY}</div>
+          <div class="bmode-attempts">Intentos hoy: ${BattleAttempts.remaining('connect')}/${BattleAttempts.max('connect')}</div>
         </div>
       </div>
 
@@ -266,35 +312,35 @@ const Battle = {
     document.getElementById('bmode-online').addEventListener('click', () => Online.open());
     document.getElementById('bmode-classic').addEventListener('click', () => {
       if (!BattleAttempts.consume('classic')) {
-        Toast.warn('Ya usaste los 2 intentos de Batalla Clásica hoy. Vuelve mañana.');
+        Toast.warn(`Ya usaste los ${BattleAttempts.max('classic')} intentos de Batalla Clásica hoy. Vuelve mañana.`);
         return;
       }
       this.startClassicBattle();
     });
     document.getElementById('bmode-penalties').addEventListener('click', () => {
       if (!BattleAttempts.consume('penalties')) {
-        Toast.warn('Ya usaste los 2 intentos de Penales hoy. Vuelve mañana.');
+        Toast.warn(`Ya usaste los ${BattleAttempts.max('penalties')} intentos de Penales hoy. Vuelve mañana.`);
         return;
       }
       this.startPenaltyBattle();
     });
     document.getElementById('bmode-quiz').addEventListener('click', () => {
       if (!BattleAttempts.consume('quiz')) {
-        Toast.warn('Ya usaste los 2 intentos de Quiz hoy. Vuelve mañana.');
+        Toast.warn(`Ya usaste los ${BattleAttempts.max('quiz')} intentos de Quiz hoy. Vuelve mañana.`);
         return;
       }
       this.startQuizBattle();
     });
     document.getElementById('bmode-guess').addEventListener('click', () => {
       if (!BattleAttempts.consume('guess')) {
-        Toast.warn('Ya usaste los 2 intentos de Adivina el Jugador hoy. Vuelve mañana.');
+        Toast.warn(`Ya usaste los ${BattleAttempts.max('guess')} intentos de Adivina el Jugador hoy. Vuelve mañana.`);
         return;
       }
       this.startGuessPlayer();
     });
     document.getElementById('bmode-connect').addEventListener('click', () => {
       if (!BattleAttempts.consume('connect')) {
-        Toast.warn('Ya usaste los 2 intentos de Conecta Jugador hoy. Vuelve mañana.');
+        Toast.warn(`Ya usaste los ${BattleAttempts.max('connect')} intentos de Conecta Jugador hoy. Vuelve mañana.`);
         return;
       }
       this.startConnectPlayer();
@@ -329,7 +375,7 @@ const Battle = {
       const rivalBtn = document.getElementById('btn-battle-new-rival');
       if (!rivalBtn) return;
       const rem = BattleAttempts.remaining('rival');
-      rivalBtn.textContent = `🔀 Nuevo rival (${rem}/3)`;
+      rivalBtn.textContent = `🔀 Nuevo rival (${rem}/${BattleAttempts.max('rival')})`;
       rivalBtn.disabled = rem === 0;
       rivalBtn.style.opacity = rem === 0 ? '0.45' : '1';
     };
@@ -337,7 +383,7 @@ const Battle = {
 
     document.getElementById('btn-battle-new-rival').addEventListener('click', () => {
       if (!BattleAttempts.consume('rival')) {
-        Toast.warn('Ya cambiaste el rival 3 veces hoy. Vuelve mañana.');
+        Toast.warn(`Ya cambiaste el rival ${BattleAttempts.max('rival')} veces hoy. Vuelve mañana.`);
         return;
       }
       this._state.cpuTeam = generateCpuTeam();

@@ -4,6 +4,10 @@
 //   · Enviar premios a un correo: carta a elección, tiradas o monedas.
 //   · Crear / activar / borrar códigos canjeables de tiradas.
 //   · Ver el historial de premios (pendiente / entregado) y cancelar pendientes.
+//   · Sorteos: crear, ver inscritos y sortear (además, al cerrar uno sale una ventana que avisa).
+//   · Intentos extra: ver todos los correos que han entrado y subirles el límite diario de intentos
+//     por modo (torneo en persona). Se guarda en attemptLimits/{correo}; la lista de correos sale de
+//     directory/{uid}, que cada jugador escribe al entrar (solo el admin puede leerla).
 //
 // La seguridad real está en firestore.rules (colecciones prizes y codes: solo el
 // UID admin puede crearlas o borrarlas). Esto es únicamente la interfaz.
@@ -64,19 +68,19 @@ const AdminPanel = {
       </div>
 
       <section class="adm-card adm-wide">
-        <div class="adm-head"><h3>🎰 Sorteos (monedas)</h3><button class="btn" id="adm-rf-refresh" type="button">Actualizar</button></div>
-        <p class="adm-hint">Al crear un sorteo, todos ven un <b>anuncio rojo</b> arriba (junto a tiradas y monedas) con su info y el botón para participar. Cuando llegue la hora, mira cuántos se anotaron y pulsa <b>🎲 Sortear</b>: se elige un inscrito al azar y todos los inscritos ven el resultado. El sorteo NO se hace solo: lo confirmas tú.</p>
+        <div class="adm-head"><h3>${Raffles.ico('dice')} Sorteos (monedas)</h3><button class="btn" id="adm-rf-refresh" type="button">Actualizar</button></div>
+        <p class="adm-hint">Al crear un sorteo, todos ven un <b>anuncio rojo</b> arriba (junto a tiradas y monedas) con su info y el botón para participar. Cuando llegue la hora te saldrá una <b>ventana emergente</b> para sortear al ganador (también puedes pulsar <b>Sortear</b> en la lista): se elige un inscrito al azar y todos los inscritos ven el resultado. El sorteo NO se hace solo: lo confirmas tú.</p>
         <div class="adm-row two">
           <div><label class="adm-lbl">Título (opcional)</label><input id="adm-rf-title" class="adm-input" maxlength="60" placeholder="Ej: Sorteo de las 8 PM"></div>
           <div><label class="adm-lbl">Costo para participar (monedas)</label><input id="adm-rf-cost" class="adm-input" type="number" min="0" max="100000" value="50"></div>
         </div>
         <label class="adm-lbl">Premio</label>
         <div class="adm-seg" id="adm-rf-type">
-          <button type="button" class="on" data-t="pack">📦 Sobre</button>
-          <button type="button" data-t="tiradas">🎟️ Tiradas</button>
+          <button type="button" class="on" data-t="pack">${Raffles.ico('package')} Sobre</button>
+          <button type="button" data-t="tiradas">${Raffles.ico('ticket')} Tiradas</button>
         </div>
         <div id="adm-rf-pack-box"><label class="adm-lbl">Categoría del sobre</label>
-          <select id="adm-rf-rarity" class="adm-input">${Object.entries(Raffles.PACKS).map(([k, v]) => `<option value="${k}">${v.icon} Sobre ${v.label}</option>`).join('')}</select></div>
+          <select id="adm-rf-rarity" class="adm-input">${Object.entries(Raffles.PACKS).map(([k, v]) => `<option value="${k}">Sobre ${v.label}</option>`).join('')}</select></div>
         <div id="adm-rf-amt-box" style="display:none"><label class="adm-lbl">Cantidad de tiradas</label><input id="adm-rf-amt" class="adm-input" type="number" min="1" max="${Prizes.MAX_TIRADAS}" value="10"></div>
         <label class="adm-lbl">Cierra / se sortea a las</label>
         <div class="adm-row">
@@ -91,12 +95,35 @@ const AdminPanel = {
       </section>
 
       <section class="adm-card adm-wide">
+        <div class="adm-head"><h3>${Raffles.ico('users')} Intentos extra por jugador</h3><button class="btn" id="adm-lim-refresh" type="button">Actualizar</button></div>
+        <p class="adm-hint">Cada jugador tiene <b>${BattleAttempts.MAX_DAILY} intentos por modo y por día</b>. Aquí ves los correos de todos los que han abierto la app y puedes subirles ese límite (por ejemplo, para un torneo en persona). Le llega en vivo a quien tenga la app abierta. Solo salen en la lista quienes hayan entrado a la app después de esta actualización; a cualquier otro puedes escribirle el correo abajo.</p>
+        <label class="adm-lbl">Intentos por modo y día</label>
+        <div class="adm-chips">
+          <input id="adm-lim-n" class="adm-input" style="width:110px" type="number" min="3" max="${BattleAttempts.MAX_CAP}" value="20">
+          <button type="button" data-lim="10">10</button><button type="button" data-lim="20">20</button><button type="button" data-lim="50">50</button><button type="button" data-lim="${BattleAttempts.MAX_CAP}">Sin límite</button>
+        </div>
+        <label class="adm-lbl">Correos que no estén en la lista (opcional)</label>
+        <textarea id="adm-lim-emails" class="adm-input" rows="2" placeholder="uno@correo.com, otro@correo.com"></textarea>
+        <div class="adm-btnrow">
+          <button class="btn btn-primary" id="adm-lim-apply" type="button">Dar intentos a los seleccionados</button>
+          <button class="btn" id="adm-lim-reset" type="button">Volver a normal</button>
+        </div>
+        <p class="adm-msg" id="adm-lim-msg" role="status"></p>
+        <div class="adm-tools">
+          <input id="adm-lim-q" class="adm-input" type="search" placeholder="Buscar por nombre o correo…" autocomplete="off">
+          <label class="adm-chk"><input type="checkbox" id="adm-lim-all"> Seleccionar todos los que se ven</label>
+          <span class="adm-count" id="adm-lim-count"></span>
+        </div>
+        <div id="adm-lim-list" class="adm-list"><p class="adm-empty">Cargando…</p></div>
+      </section>
+
+      <section class="adm-card adm-wide">
         <div class="adm-head"><h3>📋 Historial de premios</h3><button class="btn" id="adm-refresh" type="button">Actualizar</button></div>
         <div id="adm-prizes" class="adm-list"><p class="adm-empty">Cargando…</p></div>
       </section>`;
 
     this._bind(root);
-    this.loadCodes(); this.loadPrizes(); this.loadRaffles();
+    this.loadCodes(); this.loadPrizes(); this.loadRaffles(); this.loadLimits();
   },
 
   _bind(root) {
@@ -132,13 +159,109 @@ const AdminPanel = {
     q('#adm-rf-create').onclick = () => this.createRaffle(rtype);
     q('#adm-rf-refresh').onclick = () => this.loadRaffles();
     q('#adm-rf-list').addEventListener('click', e => this._raffleAction(e));
+    // ---- intentos extra
+    q('#adm-lim-refresh').onclick = () => this.loadLimits();
+    root.querySelectorAll('[data-lim]').forEach(b => b.onclick = () => { q('#adm-lim-n').value = b.dataset.lim; });
+    q('#adm-lim-q').addEventListener('input', () => this._limRender());
+    q('#adm-lim-all').addEventListener('change', e => {
+      this._limVisible().forEach(u => { e.target.checked ? this._limSel.add(u.email) : this._limSel.delete(u.email); });
+      this._limRender();
+    });
+    q('#adm-lim-list').addEventListener('change', e => {
+      const c = e.target.closest('input[data-em]'); if (!c) return;
+      c.checked ? this._limSel.add(c.dataset.em) : this._limSel.delete(c.dataset.em);
+      this._limCount();
+    });
+    q('#adm-lim-apply').onclick = () => this.applyLimits(false);
+    q('#adm-lim-reset').onclick = () => this.applyLimits(true);
+  },
+
+  // ------------------------------------------------------ intentos extra
+  _lim: { users: [], limits: {} }, _limSel: new Set(),
+
+  async loadLimits() {
+    const box = document.getElementById('adm-lim-list'); if (!box) return;
+    try {
+      const [dir, lims] = await Promise.all([
+        fbDB.collection('directory').limit(1000).get(),
+        fbDB.collection('attemptLimits').limit(1000).get()
+      ]);
+      const limits = {}; lims.docs.forEach(d => { const v = d.data(); limits[d.id] = { daily: Number(v.daily) || 0 }; });
+      const byMail = new Map();
+      dir.docs.forEach(d => { const u = d.data(), em = String(u.email || '').toLowerCase(); if (em) byMail.set(em, { email: em, name: u.name || '', lastSeen: u.lastSeen || '' }); });
+      Object.keys(limits).forEach(em => { if (!byMail.has(em)) byMail.set(em, { email: em, name: '', lastSeen: '' }); });   // dados a mano y que aún no entran
+      this._lim = { users: [...byMail.values()].sort((a, b) => (a.name || a.email).localeCompare(b.name || b.email, 'es')), limits };
+      this._limSel = new Set([...this._limSel].filter(em => byMail.has(em)));
+      this._limRender();
+    } catch (e) {
+      console.warn('[Admin] intentos extra', e);
+      box.innerHTML = '<p class="adm-empty">No se pudo cargar la lista (¿publicaste las nuevas reglas de Firestore?).</p>';
+    }
+  },
+
+  _limVisible() {
+    const k = (document.getElementById('adm-lim-q')?.value || '').trim().toLowerCase();
+    return this._lim.users.filter(u => !k || u.email.includes(k) || (u.name || '').toLowerCase().includes(k));
+  },
+  _limCount() {
+    const el = document.getElementById('adm-lim-count'); if (!el) return;
+    const withExtra = Object.keys(this._lim.limits).length;
+    el.textContent = `${this._lim.users.length} correo${this._lim.users.length === 1 ? '' : 's'} · ${this._limSel.size} seleccionado${this._limSel.size === 1 ? '' : 's'} · ${withExtra} con intentos extra`;
+  },
+  _limRender() {
+    const box = document.getElementById('adm-lim-list'); if (!box) return;
+    const list = this._limVisible();
+    box.innerHTML = list.length ? list.map(u => {
+      const n = this._lim.limits[u.email]?.daily, on = this._limSel.has(u.email);
+      const seen = u.lastSeen ? new Date(u.lastSeen).toLocaleString('es', { dateStyle: 'short', timeStyle: 'short' }) : 'aún no ha entrado';
+      return `<label class="adm-item"><span class="adm-chk"><input type="checkbox" data-em="${this._esc(u.email)}" ${on ? 'checked' : ''}></span>
+        <div class="adm-item-main"><b>${this._esc(u.name || u.email)}</b><span>${u.name ? this._esc(u.email) : ''}</span><small>Última vez: ${seen}</small></div>
+        <span class="adm-badge ${n ? 'extra' : 'norm'}">${n ? n + ' por modo' : 'Normal (' + BattleAttempts.MAX_DAILY + ')'}</span></label>`;
+    }).join('') : `<p class="adm-empty">${this._lim.users.length ? 'Nadie coincide con la búsqueda.' : 'Todavía no hay correos: aparecerán cuando los jugadores abran la app.'}</p>`;
+    const all = document.getElementById('adm-lim-all'); if (all) all.checked = list.length > 0 && list.every(u => this._limSel.has(u.email));
+    this._limCount();
+  },
+
+  applyLimits(reset) {
+    const typed = (document.getElementById('adm-lim-emails').value || '').split(/[\s,;]+/).map(s => s.trim().toLowerCase()).filter(Boolean);
+    const emails = [...new Set([...this._limSel, ...typed])];
+    if (!emails.length) return this._msg('adm-lim-msg', 'Selecciona al menos un correo de la lista o escríbelo arriba', 'err');
+    const bad = emails.find(e => !Auth.validateEmail(e));
+    if (bad) return this._msg('adm-lim-msg', `Correo inválido: ${bad}`, 'err');
+    const n = Math.floor(Number(document.getElementById('adm-lim-n').value));
+    if (!reset && !(n > BattleAttempts.MAX_DAILY && n <= BattleAttempts.MAX_CAP)) return this._msg('adm-lim-msg', `Los intentos deben estar entre ${BattleAttempts.MAX_DAILY + 1} y ${BattleAttempts.MAX_CAP}`, 'err');
+    const shown = emails.slice(0, 8).map(e => this._esc(e)).join('<br>') + (emails.length > 8 ? `<br>… y ${emails.length - 8} más` : '');
+    const text = reset
+      ? `Estos <b>${emails.length}</b> correo${emails.length === 1 ? '' : 's'} vuelven a <b>${BattleAttempts.MAX_DAILY} intentos</b> por modo y día:<br><b>${shown}</b>`
+      : `Vas a dar <b>${n >= BattleAttempts.MAX_CAP ? 'intentos sin límite' : n + ' intentos'}</b> por modo y día a <b>${emails.length}</b> correo${emails.length === 1 ? '' : 's'}:<br><b>${shown}</b>`;
+    this._confirm(reset ? '¿Volver a la normalidad?' : '¿Dar intentos extra?', text, async () => {
+      const btns = [document.getElementById('adm-lim-apply'), document.getElementById('adm-lim-reset')]; btns.forEach(b => b && (b.disabled = true));
+      try {
+        for (let i = 0; i < emails.length; i += 400) {
+          const batch = fbDB.batch();
+          emails.slice(i, i + 400).forEach(email => {
+            const ref = fbDB.collection('attemptLimits').doc(email);
+            if (reset) batch.delete(ref);
+            else batch.set(ref, { email, daily: n, updatedAt: new Date().toISOString(), updatedBy: fbAuth.currentUser.uid });
+          });
+          await batch.commit();
+        }
+        this._msg('adm-lim-msg', reset ? `${emails.length} correo${emails.length === 1 ? '' : 's'} vuelven al límite normal` : `Listo: ${emails.length} correo${emails.length === 1 ? '' : 's'} con ${n} intentos por modo`, 'ok');
+        document.getElementById('adm-lim-emails').value = ''; this._limSel.clear();
+        await this.loadLimits();
+      } catch (e) {
+        console.error('[Admin] intentos extra', e);
+        this._msg('adm-lim-msg', 'No se pudo guardar: ¿publicaste las nuevas reglas de Firestore?', 'err');
+      }
+      btns.forEach(b => b && (b.disabled = false));
+    });
   },
 
   _msg(id, text, cls) { const el = document.getElementById(id); if (el) { el.textContent = text; el.className = 'adm-msg ' + (cls || ''); } },
 
   _confirm(title, text, onOk) {
     if (typeof HeadCards !== 'undefined' && HeadCards._dialog)
-      HeadCards._dialog({ icon: '🏆', title, text, cancel: 'Cancelar', ok: 'Confirmar', onOk });
+      HeadCards._dialog({ icon: Raffles.ico('trophy', '#ffc83d'), title, text, cancel: 'Cancelar', ok: 'Confirmar', onOk });
     else if (confirm(title + '\n' + text.replace(/<[^>]+>/g, ''))) onOk();
   },
 
@@ -161,12 +284,12 @@ const AdminPanel = {
       prize = { type: 'tiradas', amount: n };
     }
     const when = new Date(endsAtMs).toLocaleString('es', { dateStyle: 'short', timeStyle: 'short' });
-    this._confirm('¿Publicar el sorteo?', `Premio: <b>${this._esc(Raffles.prizeLabel(prize))}</b><br>Costo: <b>${cost} 🪙</b><br>Se sortea: <b>${when}</b><br>Todos los jugadores verán el anuncio rojo.`, async () => {
+    this._confirm('¿Publicar el sorteo?', `Premio: <b>${this._esc(Raffles.prizeLabel(prize))}</b><br>Costo: <b>${cost} monedas</b><br>Se sortea: <b>${when}</b><br>Todos los jugadores verán el anuncio rojo.`, async () => {
       const btn = q('adm-rf-create'); btn.disabled = true;
       try {
         await fbDB.collection('raffles').add({ title, prize, cost, endsAtMs, endsAt: new Date(endsAtMs).toISOString(), status: 'open',
           createdAt: new Date().toISOString(), createdBy: fbAuth.currentUser.uid, claimed: false });
-        this._msg('adm-rf-msg', '✅ Sorteo publicado: ya aparece el anuncio rojo a todos', 'ok');
+        this._msg('adm-rf-msg', 'Sorteo publicado: ya aparece el anuncio rojo a todos', 'ok');
         q('adm-rf-title').value = ''; q('adm-rf-end').value = this._localInput(this._nextHour());
         this.loadRaffles();
       } catch (e) {
@@ -186,13 +309,13 @@ const AdminPanel = {
         const r = d.data(), open = r.status === 'open', closed = open && r.endsAtMs <= Date.now();
         const when = new Date(r.endsAtMs).toLocaleString('es', { dateStyle: 'short', timeStyle: 'short' });
         const badge = open ? (closed ? '<span class="adm-badge pend">Listo para sortear</span>' : '<span class="adm-badge pend">Abierto</span>') : '<span class="adm-badge done">Sorteado</span>';
-        const res = open ? '' : (r.winnerName ? ` · 🏆 ${this._esc(r.winnerName)} (${Number(r.entriesCount || 0)} inscritos)${r.claimed ? ' · premio reclamado' : ' · sin reclamar'}` : ' · sin inscritos');
-        return `<div class="adm-item"><div class="adm-item-main"><b>${this._esc(Raffles.prizeLabel(r.prize))}${r.title ? ' · ' + this._esc(r.title) : ''}</b>
-          <span>Cuesta ${Number(r.cost)} 🪙 · ${open ? 'sorteo' : 'se sorteó'}: ${when}${res}</span>
+        const res = open ? '' : (r.winnerName ? ` · Ganador: ${this._esc(r.winnerName)} (${Number(r.entriesCount || 0)} inscritos)${r.claimed ? ' · premio reclamado' : ' · sin reclamar'}` : ' · sin inscritos');
+        return `<div class="adm-item"><div class="adm-item-main"><b>${Raffles.prizeIcon(r.prize)} ${this._esc(Raffles.prizeLabel(r.prize))}${r.title ? ' · ' + this._esc(r.title) : ''}</b>
+          <span>Cuesta ${Number(r.cost)} monedas · ${open ? 'sorteo' : 'se sorteó'}: ${when}${res}</span>
           <small id="adm-rf-n-${d.id}"></small></div>${badge}
-          ${open ? `<button class="btn adm-x" data-rfcount="${d.id}" title="Ver cuántos se anotaron">👥</button>
-          <button class="btn btn-primary adm-x" data-rfdraw="${d.id}" title="Elegir ganador al azar">🎲 Sortear</button>
-          <button class="btn adm-x" data-rfdel="${d.id}" title="Cancelar sorteo">✕</button>` : ''}</div>`;
+          ${open ? `<button class="btn adm-x" data-rfcount="${d.id}" title="Ver cuántos se anotaron" aria-label="Ver inscritos">${Raffles.ico('users')}</button>
+          <button class="btn btn-primary adm-x" data-rfdraw="${d.id}" title="Elegir ganador al azar">${Raffles.ico('dice')} Sortear</button>
+          <button class="btn adm-x" data-rfdel="${d.id}" title="Cancelar sorteo" aria-label="Cancelar sorteo">${Raffles.ico('x')}</button>` : ''}</div>`;
       }).join('');
     } catch (e) {
       console.warn('[Admin] sorteos', e);
@@ -203,7 +326,7 @@ const AdminPanel = {
   async _rfCount(id) {
     const s = await fbDB.collection('raffles').doc(id).collection('entries').get();
     const el = document.getElementById('adm-rf-n-' + id);
-    if (el) el.textContent = `👥 ${s.size} inscrito${s.size === 1 ? '' : 's'}` + (s.size ? ': ' + s.docs.map(d => d.data().email).join(', ') : '');
+    if (el) el.innerHTML = `${Raffles.ico('users')} ${s.size} inscrito${s.size === 1 ? '' : 's'}` + (s.size ? ': ' + this._esc(s.docs.map(d => d.data().email).join(', ')) : '');
     return s.size;
   },
 
@@ -215,12 +338,12 @@ const AdminPanel = {
         const id = t.dataset.rfdraw, n = await this._rfCount(id);
         if (!n) return Toast.warn('Todavía no hay inscritos');
         const doc = await fbDB.collection('raffles').doc(id).get(), early = doc.data().endsAtMs > Date.now();
-        this._confirm('¿Sortear ahora?', `Hay <b>${n} inscrito${n === 1 ? '' : 's'}</b>.${early ? '<br>⚠️ Aún no llega la hora de cierre: al sortear se cierran las inscripciones.' : ''}<br>Se elegirá un ganador al azar y todos los inscritos verán el resultado.`, async () => {
+        this._confirm('¿Sortear ahora?', `Hay <b>${n} inscrito${n === 1 ? '' : 's'}</b>.${early ? `<br>${Raffles.ico('alert', '#ffc83d')} Aún no llega la hora de cierre: al sortear se cierran las inscripciones.` : ''}<br>Se elegirá un ganador al azar y todos los inscritos verán el resultado.`, async () => {
           try {
             const r = await Raffles.draw(id);
-            this._msg('adm-rf-msg', `🏆 Ganador: ${r.winner.name} (${r.winner.email}) · ${r.count} inscritos`, 'ok');
+            this._msg('adm-rf-msg', `Ganador: ${r.winner.name} (${r.winner.email}) · ${r.count} inscritos`, 'ok');
             this.loadRaffles();
-          } catch (err) { console.error(err); Toast.error('No se pudo sortear'); }
+          } catch (err) { console.error(err); Toast[err.message === 'already-done' ? 'warn' : 'error'](err.message === 'already-done' ? 'Este sorteo ya se había sorteado' : 'No se pudo sortear'); this.loadRaffles(); }
         });
       } else if (t.dataset.rfdel) {
         const id = t.dataset.rfdel, n = await this._rfCount(id);
